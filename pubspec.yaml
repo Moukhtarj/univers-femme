@@ -37,6 +37,7 @@ dependencies:
  
 
 dev_dependencies:
+  intl: ^0.18.1
   flutter_test:
     sdk: flutter
 
@@ -63,14 +64,26 @@ flutter:
     - assets/images/womn.jpg
     - assets/images/woman.jpg
     - assets/images/beauty.jpg
-    - assets/images/toto.jpg
-    - assets/images/final.jpg
+    - assets/images/sh.jpg
+    - assets/images/cu.jpg
     - assets/images/talye.jpg
     - assets/images/bath.jpg
     - assets/images/gym.jpg
     - assets/images/henna.jpg
     - assets/images/melh.jpg
+    - assets/images/a.jpg
+    - assets/images/..jpg
+    - assets/images/h.jpg
     - assets/images/acc.jpg
+    - assets/images/mn.jpg
+    - assets/images/n.jpg
+    - assets/images/im.jpg
+    - assets/images/ss.jpg
+    - assets/images/g.jpg
+    - assets/images/mus.jpg
+    - assets/images/gim.jpg
+    - assets/images/gim3.jpg
+    - assets/images/gim2.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

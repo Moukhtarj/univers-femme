@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:test1/screen/AccessoriesScreen.dart';
+import 'package:test1/screen/GymScreen.dart';
+import 'package:test1/screen/HammamScreen%20.dart';
+import 'package:test1/screen/HennaScreen.dart';
+import 'package:test1/screen/MlahfaScreen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -289,6 +294,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               Text(
                 _translations[_selectedLanguage]!['appTitle']!,
                 textAlign: TextAlign.center,
+              
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 42,
@@ -836,7 +842,8 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(translations[selectedLanguage]!['appTitle']!),
-        backgroundColor: Colors.pink,
+        
+        backgroundColor: const Color.fromARGB(255, 241, 181, 201),
         foregroundColor: Colors.white,
       ),
       drawer: Drawer(
@@ -999,7 +1006,86 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildCategoryCard(BuildContext context, String imagePath, String title) {
-    return Card(
+  return GestureDetector(
+    onTap: () {
+      if (title == translations[selectedLanguage]!['hamam']!) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Directionality(
+              textDirection: selectedLanguage == 'Arabic' 
+                  ? TextDirection.rtl 
+                  : TextDirection.ltr,
+              child: HammamScreen(
+                selectedLanguage: selectedLanguage,
+                translations: translations,
+              ),
+            ),
+          ),
+        );
+      } else if (title == translations[selectedLanguage]!['henna']!) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Directionality(
+              textDirection: selectedLanguage == 'Arabic' 
+                  ? TextDirection.rtl 
+                  : TextDirection.ltr,
+              child: HennaScreen(
+                selectedLanguage: selectedLanguage,
+                translations: translations,
+              ),
+            ),
+          ),
+        );
+      } else if (title == translations[selectedLanguage]!['gym']!) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Directionality(
+              textDirection: selectedLanguage == 'Arabic' 
+                  ? TextDirection.rtl 
+                  : TextDirection.ltr,
+              child: GymScreen(
+                selectedLanguage: selectedLanguage,
+                translations: translations,
+              ),
+            ),
+          ),
+        );
+      } else if (title == translations[selectedLanguage]!['accessories']!) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Directionality(
+              textDirection: selectedLanguage == 'Arabic' 
+                  ? TextDirection.rtl 
+                  : TextDirection.ltr,
+              child: AccessoriesScreen(
+                selectedLanguage: selectedLanguage,
+                translations: translations,
+              ),
+            ),
+          ),
+        );
+      } else if (title == translations[selectedLanguage]!['mlahfa']!) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Directionality(
+              textDirection: selectedLanguage == 'Arabic' 
+                  ? TextDirection.rtl 
+                  : TextDirection.ltr,
+              child: MlahfaScreen(
+                selectedLanguage: selectedLanguage,
+                translations: translations,
+              ),
+            ),
+          ),
+        );
+      }
+    },
+    child: Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
@@ -1028,6 +1114,7 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
