@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'reservation_screen.dart';
 
 class HennaScreen extends StatelessWidget {
@@ -16,140 +17,202 @@ class HennaScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(translations[selectedLanguage]!['henna']!),
-        backgroundColor: const Color.fromARGB(255, 232, 174, 193),
+        backgroundColor: const Color(0xFFE8AEC1),
         foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            _buildProductCard(
-              context,
-              'assets/images/n.jpg',
-              selectedLanguage == 'Arabic' ? 'حناء تقليدية' : 'Traditional Henna',
-              selectedLanguage == 'Arabic' ? 'اتصل: 22134478' : 'Call: 22134478',
-            ),
-            _buildProductCard(
-              context,
-              'assets/images/mn.jpg',
-              selectedLanguage == 'Arabic' ? 'حناء تقليدية' : 'Traditional Henna',
-              selectedLanguage == 'Arabic' ? 'اتصل: 34537711' : 'Call: 34537711',
-            ),
-            _buildProductCard(
-              context,
-              'assets/images/h.jpg',
-              selectedLanguage == 'Arabic' ? 'حناء تقليدية' : 'Traditional Henna',
-              selectedLanguage == 'Arabic' ? 'اتصل: 44109921' : 'Call: 44109921',
-            ),
-            _buildProductCard(
-              context,
-              'assets/images/..jpg',
-              selectedLanguage == 'Arabic' ? 'حناء تقليدية' : 'Traditional Henna',
-              selectedLanguage == 'Arabic' ? 'اتصل: 43990045' : 'Call: 43990045',
-            ),
-            _buildProductCard(
-              context,
-              'assets/images/a.jpg',
-              selectedLanguage == 'Arabic' ? 'حناء تقليدية' : 'Traditional Henna',
-              selectedLanguage == 'Arabic' ? 'اتصل: 26876002' : 'Call: 26876002',
-            ),
-          ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFF9E8EF),
+              Color(0xFFF5D6E3),
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ListView(
+            children: [
+              _buildShopCard(
+                context,
+                'assets/images/n.jpg',
+                'Salon Al Ward',
+                '+222 22134478',
+              ),
+              _buildShopCard(
+                context,
+                'assets/images/mn.jpg',
+                'Salon Noor',
+                '+222 34537711',
+              ),
+              _buildShopCard(
+                context,
+                'assets/images/h.jpg',
+                'Salon Zahra',
+                '+222 44109921',
+              ),
+              _buildShopCard(
+                context,
+                'assets/images/..jpg',
+                'Salon  Laila',
+                '+222 43990045',
+              ),
+              _buildShopCard(
+                context,
+                'assets/images/a.jpg',
+                'Salon Yasmin',
+                '+222 26876002',
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildProductCard(BuildContext context, String imagePath, String title, String description) {
+  Widget _buildShopCard(BuildContext context, String imagePath, String shopName, String phoneNumber) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 4,
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Circular image container
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey[200],
-              ),
-              child: ClipOval(
-                child: Image.asset(
-                  imagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Center(
-                    child: Icon(Icons.image, size: 40, color: Colors.grey[400]),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _launchPhoneCall(phoneNumber),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFFFFF9FB),
+                Color(0xFFFFF0F5),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Circular avatar with image
+              Hero(
+                tag: shopName,
+                child: Container(
+                  width: 53,
+                  height: 65,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFE8AEC1),
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      imagePath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Center(
+                        child: Icon(
+                          Icons.spa,
+                          size: 30,
+                          color: const Color(0xFFE8AEC1).withOpacity(0.6),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            // Text content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(width: 16),
+              
+              // Shop info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      shopName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF6D3B47),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.phone,
+                          size: 16,
+                          color: const Color(0xFFE8AEC1),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          phoneNumber,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
                     ),
+                  ],
+                ),
+              ),
+              
+              // Book button
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8AEC1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: ElevatedButton(
-                      
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 245, 182, 203),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                  child: const Icon(
+                    Icons.calendar_today,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => Directionality(
+                        textDirection: selectedLanguage == 'Arabic' 
+                            ? TextDirection.rtl 
+                            : TextDirection.ltr,
+                        child: ReservationScreen(
+                          productName: shopName,
+                          selectedLanguage: selectedLanguage,
+                          translations: translations,
                         ),
                       ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => Directionality(
-                              textDirection: selectedLanguage == 'Arabic' 
-                                  ? TextDirection.rtl 
-                                  : TextDirection.ltr,
-                              child: ReservationScreen(
-                                productName: title,
-                                selectedLanguage: selectedLanguage,
-                                translations: translations,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        selectedLanguage == 'Arabic' ? 'حجز' : 'Book',
-                        style: const TextStyle(color: Colors.white),
-                      ),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _launchPhoneCall(String phoneNumber) async {
+    final Uri telLaunchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber.replaceAll(RegExp(r'[^0-9+]'), ''),
+    );
+    
+    if (await canLaunchUrl(telLaunchUri)) {
+      await launchUrl(telLaunchUri);
+    } else {
+      throw 'Could not launch $telLaunchUri';
+    }
   }
 }

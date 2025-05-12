@@ -30,6 +30,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  iconsax: ^0.0.8
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -37,7 +38,13 @@ dependencies:
  
 
 dev_dependencies:
-  intl: ^0.18.1
+  intl: ^0.20.2
+  url_launcher: ^6.1.5
+  flutter_animate: ^4.1.1  # or the latest version
+  flutter_rating_bar: ^4.0.1
+  http: ^0.13.5
+  shared_preferences: ^2.2.0
+  
   flutter_test:
     sdk: flutter
 
@@ -84,7 +91,39 @@ flutter:
     - assets/images/gim.jpg
     - assets/images/gim3.jpg
     - assets/images/gim2.jpeg
+    - assets/images/m1.jpg
+    - assets/images/m2.jpg
+    - assets/images/m3.jpg
+    - assets/images/wts.png
+    - assets/images/bag.webp
+    - assets/images/bag2.avif
+    - assets/images/brace.webp
+    - assets/images/ear.png
+    - assets/images/gold.jpg
+    - assets/images/neck.jpg
+    - assets/images/pearl.webp
+    - assets/images/ring.avif
+    - assets/images/silver.avif
+    - assets/images/hammam_nil.jpg
+    - assets/images/hammam_yasmin.jpg
+    - assets/images/hammam_andalus.jpg
+    - assets/images/hammam_zahra.jpg
+    - assets/images/hammam_lotus.jpg
+    - assets/images/melhfa_koura.jpg
+    - assets/images/melhfa_gaz.jpg
+    - assets/images/melhfa_khayata.jpg
+    - assets/images/makeup1.jpg
+    - assets/images/makeup2.jpg
+    - assets/images/makeup3.jpg
+    - assets/images/makeup4.webp
+    - assets/images/melhfa1.jpg
+    - assets/images/melhfa2.jpg
+    - assets/images/melhfa3.jpg
+    - assets/images/melhfa4.jpg
 
+
+
+    
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
