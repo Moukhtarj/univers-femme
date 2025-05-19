@@ -51,10 +51,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 String phone = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '').trim();
 
       final response = await http.post(
-        Uri.parse('${Config.apiBaseUrl}/api/password-reset/request/'),
+        Uri.parse('${Config.apiUrl}/api/password-reset/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'phone_number': phone,
+          'phone': phone,
         }),
       );
 
@@ -97,10 +97,10 @@ String phone = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '').trim();
     
     try {
       final response = await http.post(
-        Uri.parse('${Config.apiBaseUrl}/api/password-reset/confirm/'),
+        Uri.parse('${Config.apiUrl}/api/password-reset/confirm/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'phone_number': '+222${_phoneController.text.replaceAll('+222', '').trim()}',
+          'phone': '+222${_phoneController.text.replaceAll('+222', '').trim()}',
           'otp': _otpController.text,
           'new_password': _newPasswordController.text,
         }),

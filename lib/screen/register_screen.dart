@@ -49,14 +49,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final registrationData = {
           'first_name': _firstNameController.text,
           'last_name': _lastNameController.text,
-          'phone_number': _phoneController.text,
+          'phone': _phoneController.text, // Changed from phone_number to match backend
           'email': _emailController.text,
           'password': _passwordController.text,
           'role': 'utilisateur', // Default role
         };
 
         final response = await http.post(
-          Uri.parse('${Config.apiBaseUrl}/api/register/'),
+          Uri.parse('${Config.apiUrl}/api/register/'), // Changed from /api/auth/register/
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(registrationData),
         );

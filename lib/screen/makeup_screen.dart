@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'reservation_screen.dart';
+import 'command_screen.dart';
+import '../services/api_service.dart';
 
-class MakeupScreen extends StatelessWidget {
+class MakeupScreen extends StatefulWidget {
   final String selectedLanguage;
   final Map<String, Map<String, String>> translations;
   
@@ -13,12 +15,70 @@ class MakeupScreen extends StatelessWidget {
   });
 
   @override
+  State<MakeupScreen> createState() => _MakeupScreenState();
+}
+
+class _MakeupScreenState extends State<MakeupScreen> {
+  final ApiService _apiService = ApiService();
+  List<dynamic> _makeupServices = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMakeupServices();
+  }
+
+  Future<void> _loadMakeupServices() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+      
+      final services = await _apiService.getMakeupServices();
+      
+      setState(() {
+        _makeupServices = services;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _launchPhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    
+    if (await canLaunch(launchUri.toString())) {
+      await launch(launchUri.toString());
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.selectedLanguage == 'Arabic'
+                ? 'لا يمكن الاتصال'
+                : 'Could not launch phone call',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    bool isRTL = selectedLanguage == 'Arabic';
+    bool isRTL = widget.selectedLanguage == 'Arabic';
     
     return Scaffold(
       appBar: AppBar(
-        title: Text(translations[selectedLanguage]?['makeup'] ?? 'Makeup'),
+        title: Text(widget.translations[widget.selectedLanguage]?['makeup'] ?? 'Makeup'),
         backgroundColor: Colors.pink[800],
         foregroundColor: Colors.white,
         elevation: 0,
@@ -35,171 +95,78 @@ class MakeupScreen extends StatelessWidget {
             ],
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ListView(
-            children: [
-              // Bridal Makeup Section
-              // _buildSectionHeader(
-              //   context,
-              //   isRTL ? 'مكياج عرائس' : 'Bridal Makeup',
-              //   isRTL ? 'عرض خاص: 20% خصم' : 'Special Offer: 20% Off',
-              // ),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+        child: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFF06292)))
+          : _error != null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildMakeupArtistCard(
-                      context,
-                      'assets/images/makeup1.jpg',
-                      isRTL ? 'صالون زينة' : 'Zina Salon',
-                      '+222 12345678',
-                      isRTL ? 'مكياج كامل: 1500 MRU' : 'Full Makeup: 1500 MRU',
-                    ),
-                    _buildMakeupArtistCard(
-                      context,
-                      'assets/images/makeup2.jpg',
-                      isRTL ? 'صالون ليلى' : 'Layla Salon',
-                      '+222 87654321',
-                      isRTL ? 'مكياج كامل: 1800 MRU' : 'Full Makeup: 1800 MRU',
+                    Text('Error: $_error'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadMakeupServices,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF06292),
+                      ),
+                      child: Text(
+                        widget.selectedLanguage == 'Arabic' ? 'حاول مرة أخرى' : 'Try Again',
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Evening Makeup Section
-              // _buildSectionHeader(
-              //   context,
-              //   isRTL ? 'مكياج سهرة' : 'Evening Makeup',
-              //   isRTL ? 'احجز قبل 3 أيام' : 'Book 3 Days in Advance',
-              // ),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildMakeupArtistCard(
-                      context,
-                      'assets/images/makeup3.jpg',
-                      isRTL ? 'صالون نور' : 'Noor Beauty',
-                      '+222 23456789',
-                      isRTL ? 'مكياج سهرة: 1000 MRU' : 'Evening Makeup: 1000 MRU',
-                    ),
-                    _buildMakeupArtistCard(
-                      context,
-                      'assets/images/makeup4.webp',
-                      isRTL ? 'صالون ياسمين' : 'Yasmin Studio',
-                      '+222 98765432',
-                      isRTL ? 'مكياج سهرة: 1200 MRU' : 'Evening Makeup: 1200 MRU',
-                    ),
-                  ],
+              )
+            : _makeupServices.isEmpty
+              ? Center(
+                  child: Text(
+                    widget.selectedLanguage == 'Arabic'
+                      ? 'لا توجد خدمات مكياج متاحة حالياً'
+                      : 'No makeup services available',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ListView.builder(
+                    itemCount: _makeupServices.length,
+                    itemBuilder: (context, index) {
+                      final service = _makeupServices[index];
+                      return _buildMakeupArtistCard(
+                        context,
+                        service['image'] ?? 'assets/images/makeup1.jpg',
+                        service['name'] ?? 'Makeup Artist',
+                        service['phone'] ?? '+222 12345678',
+                        service['price']?.toString() ?? '1500.0',
+                        service['id'] ?? 1,
+                      );
+                    },
+                  ),
                 ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Special Offers Card
-              // Card(
-              //   margin: const EdgeInsets.symmetric(horizontal: 8),
-              //   shape: RoundedRectangleBorder(
-              //     borderRadius: BorderRadius.circular(20),
-              //   ),
-              //   child: Container(
-              //     padding: const EdgeInsets.all(16),
-              //     decoration: BoxDecoration(
-              //       gradient: LinearGradient(
-              //         colors: [
-              //           Colors.pink[100]!,
-              //           Colors.pink[50]!,
-              //         ],
-              //         begin: Alignment.topLeft,
-              //         end: Alignment.bottomRight,
-              //       ),
-              //       borderRadius: BorderRadius.circular(20),
-              //     ),
-              //     child: Column(
-              //       crossAxisAlignment: CrossAxisAlignment.start,
-              //       children: [
-              //         Row(
-              //           children: [
-              //             Icon(Icons.local_offer, color: Colors.pink[800]),
-              //             const SizedBox(width: 8),
-              //             Text(
-              //               isRTL ? 'عروض خاصة' : 'Special Offers',
-              //               style: TextStyle(
-              //                 fontSize: 18,
-              //                 fontWeight: FontWeight.bold,
-              //                 color: Colors.pink[800],
-              //               ),
-              //             ),
-              //           ],
-              //         ),
-              //         const SizedBox(height: 12),
-              //         _buildOfferItem(
-              //           isRTL ? 'حزمة زفاف كاملة' : 'Complete Wedding Package',
-              //           isRTL ? 'مكياج + حناء + فستان' : 'Makeup + Henna + Dress',
-              //           '5000 MRU',
-              //         ),
-              //         _buildOfferItem(
-              //           isRTL ? 'حزمة عيد الميلاد' : 'Eid Package',
-              //           isRTL ? 'مكياج + مانيكير' : 'Makeup + Manicure',
-              //           '2500 MRU',
-              //         ),
-              //       ],
-              //     ),
-              //   ),
-              // ),
-            ],
-          ),
-        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => Directionality(
-                textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
-                child: ReservationScreen(
-                  productName: isRTL ? 'حجز مكياج' : 'Makeup Booking',
-                  selectedLanguage: selectedLanguage,
-                  translations: translations,
+          if (_makeupServices.isNotEmpty) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => Directionality(
+                  textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+                  child: CommandScreen(
+                    productName: isRTL ? 'حجز مكياج' : 'Makeup Booking',
+                    serviceId: _makeupServices.first['id'] ?? 1,
+                    selectedLanguage: widget.selectedLanguage,
+                    translations: widget.translations,
+                    productImage: _makeupServices.first['image'] ?? 'assets/images/makeup1.jpg',
+                    productPrice: double.tryParse(_makeupServices.first['price']?.toString() ?? '0.0') ?? 0.0,
+                  ),
                 ),
               ),
-            ),
-          );
+            );
+          }
         },
         backgroundColor: Colors.pink[800],
         child: const Icon(Icons.calendar_today, color: Colors.white),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(BuildContext context, String title, String subtitle) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.pink[800],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -210,18 +177,38 @@ class MakeupScreen extends StatelessWidget {
     String salonName,
     String phoneNumber,
     String price,
+    int serviceId,
   ) {
+    bool isRTL = widget.selectedLanguage == 'Arabic';
+    
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       elevation: 3,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => _launchPhoneCall(phoneNumber),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => Directionality(
+                textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+                child: CommandScreen(
+                  productName: salonName,
+                  serviceId: serviceId,
+                  selectedLanguage: widget.selectedLanguage,
+                  translations: widget.translations,
+                  productImage: imagePath,
+                  productPrice: double.tryParse(price) ?? 0.0,
+                ),
+              ),
+            ),
+          );
+        },
         child: Container(
-          width: 220,
+          width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
@@ -234,17 +221,29 @@ class MakeupScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(15),
                 child: AspectRatio(
                   aspectRatio: 16/9,
-                  child: Image.asset(
-                    imagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[200],
-                      child: const Center(
-                        child: Icon(Icons.face_retouching_natural, 
-                            size: 40, color: Colors.grey),
+                  child: imagePath.toString().startsWith('http')
+                    ? Image.network(
+                        imagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: Icon(Icons.face_retouching_natural, 
+                                size: 40, color: Colors.grey),
+                          ),
+                        ),
+                      )
+                    : Image.asset(
+                        imagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: Icon(Icons.face_retouching_natural, 
+                                size: 40, color: Colors.grey),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -258,51 +257,59 @@ class MakeupScreen extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                price,
+                isRTL ? 'السعر: $price MRU' : 'Price: $price MRU',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.pink[800],
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.pink[50],
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.phone,
-                        color: Colors.pink[800],
-                        size: 18,
-                      ),
-                    ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.phone, size: 16),
+                    label: Text(isRTL ? 'اتصل' : 'Call'),
                     onPressed: () => _launchPhoneCall(phoneNumber),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    phoneNumber,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.pink[800],
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.bookmark,
-                        color: Colors.white,
-                        size: 18,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pink[50],
+                      foregroundColor: Colors.pink[800],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    onPressed: () {},
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.calendar_today, size: 16),
+                      label: Text(isRTL ? 'حجز' : 'Book'),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => Directionality(
+                              textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+                              child: CommandScreen(
+                                productName: salonName,
+                                serviceId: serviceId,
+                                selectedLanguage: widget.selectedLanguage,
+                                translations: widget.translations,
+                                productImage: imagePath,
+                                productPrice: double.tryParse(price) ?? 0.0,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.pink[800],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -311,64 +318,5 @@ class MakeupScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildOfferItem(String title, String description, String price) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: Colors.pink[800],
-              shape: BoxShape.circle,
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            price,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.pink[800],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _launchPhoneCall(String phoneNumber) async {
-    final Uri telLaunchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber.replaceAll(RegExp(r'[^0-9+]'), ''),
-    );
-    
-    if (await canLaunchUrl(telLaunchUri)) {
-      await launchUrl(telLaunchUri);
-    } else {
-      throw 'Could not launch $telLaunchUri';
-    }
   }
 }

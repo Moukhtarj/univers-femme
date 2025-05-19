@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'reservation_screen.dart';
+import '../services/api_service.dart';
 
-class HammamListScreen extends StatelessWidget {
+class HammamListScreen extends StatefulWidget {
   final String selectedLanguage;
   final Map<String, Map<String, String>> translations;
   
@@ -13,12 +14,54 @@ class HammamListScreen extends StatelessWidget {
   });
 
   @override
+  State<HammamListScreen> createState() => _HammamListScreenState();
+}
+
+class _HammamListScreenState extends State<HammamListScreen> {
+  final ApiService _apiService = ApiService();
+  List<dynamic> _hammams = [];
+  bool _isLoading = true;
+  String? _error;
+
+  // Helper method to get translated text with fallback
+  String _translate(String key) {
+    return widget.translations[widget.selectedLanguage]?[key] ?? widget.translations['English']?[key] ?? key;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHammams();
+  }
+
+  Future<void> _loadHammams() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+      
+      final hammams = await _apiService.getHammams();
+      
+      setState(() {
+        _hammams = hammams;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFDF2F5),
       appBar: AppBar(
         title: Text(
-          translations[selectedLanguage]!['hamam']!,
+          _translate('hamam'),
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -34,51 +77,107 @@ class HammamListScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-        child: ListView(
-          children: [
-            const SizedBox(height: 10),
-            _buildCategoryHeader(context, selectedLanguage == 'Arabic' ? 'الحمامات الموريتانية' : 'Mauritanian Hammams'),
-            const SizedBox(height: 15),
-            _buildHammamCard(
-              context,
-              'assets/images/hammam_nil.jpg',
-              'Hammam Nil',
-              selectedLanguage == 'Arabic' ? 'الشارع الرئيسي، نواكشوط' : 'Main Street, Nouakchott',
-              4.7,
-              '8:00 - 22:00',
+      body: _isLoading
+        ? const Center(child: CircularProgressIndicator(color: Color(0xFFF8BBD0)))
+        : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $_error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadHammams,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF8BBD0),
+                    ),
+                    child: Text(
+                      _translate('try_again'),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : _hammams.isEmpty
+            ? Center(
+                child: Text(
+                  widget.selectedLanguage == 'Arabic'
+                    ? 'لا توجد حمامات متاحة حالياً'
+                    : 'No hammams available',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              )
+            : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+              child: ListView(
+                children: [
+                  const SizedBox(height: 10),
+                  _buildCategoryHeader(context, _translate('mauritanian_hammams')),
+                  const SizedBox(height: 15),
+                  ..._hammams.map((hammam) => _buildHammamCard(
+                    context,
+                    hammam['image']?.toString() ?? 'assets/images/hammam_nil.jpg',
+                    hammam['name']?.toString() ?? 'Hammam',
+                    hammam['location']?.toString() ?? _getTranslatedAddress('main_street_nouakchott'),
+                    (hammam['rating'] != null) ? double.tryParse(hammam['rating'].toString()) ?? 4.5 : 4.5,
+                    hammam['hours']?.toString() ?? _getOperatingHours('8_22'),
+                    hammam['id'] != null ? int.tryParse(hammam['id'].toString()) ?? 1 : 1,
+                  )).toList(),
+                ],
+              ),
             ),
-            _buildHammamCard(
-              context,
-              'assets/images/hammam_yasmin.jpg',
-              'Hammam El Yasmin',
-              selectedLanguage == 'Arabic' ? 'حي تفرغ زينة، نواكشوط' : 'Tevragh Zeina, Nouakchott',
-              4.8,
-              '7:00 - 23:00',
-            ),
-           
-            _buildHammamCard(
-              context,
-              'assets/images/hammam_zahra.jpg',
-              'Hammam SPA',
-              selectedLanguage == 'Arabic' ? 'شارع عبد الناصر، نواكشوط' : 'Abdel Nasser Street, Nouakchott',
-              4.6,
-              '8:00 - 22:00',
-            ),
-            _buildHammamCard(
-              context,
-              'assets/images/hammam_lotus.jpg',
-              'Hammam aladin',
-              selectedLanguage == 'Arabic' ? 'حي لكصر، نواكشوط' : 'Ksar District, Nouakchott',
-              4.9,
-              '7:30 - 23:30',
-            ),
-          
-          ],
-        ),
-      ),
     );
+  }
+
+  // Helper methods for translations
+  String _getTranslatedAddress(String key) {
+    switch (widget.selectedLanguage) {
+      case 'Arabic':
+        return {
+          'main_street_nouakchott': 'الشارع الرئيسي، نواكشوط',
+          'tevragh_zeina_nouakchott': 'حي تفرغ زينة، نواكشوط',
+          'abdel_nasser_street_nouakchott': 'شارع عبد الناصر، نواكشوط',
+          'ksar_district_nouakchott': 'حي لكصر، نواكشوط',
+        }[key] ?? '';
+      case 'French':
+        return {
+          'main_street_nouakchott': 'Rue principale, Nouakchott',
+          'tevragh_zeina_nouakchott': 'Tevragh Zeina, Nouakchott',
+          'abdel_nasser_street_nouakchott': 'Rue Abdel Nasser, Nouakchott',
+          'ksar_district_nouakchott': 'Quartier Ksar, Nouakchott',
+        }[key] ?? '';
+      default: // English
+        return {
+          'main_street_nouakchott': 'Main Street, Nouakchott',
+          'tevragh_zeina_nouakchott': 'Tevragh Zeina, Nouakchott',
+          'abdel_nasser_street_nouakchott': 'Abdel Nasser Street, Nouakchott',
+          'ksar_district_nouakchott': 'Ksar District, Nouakchott',
+        }[key] ?? '';
+    }
+  }
+
+  String _getOperatingHours(String key) {
+    switch (widget.selectedLanguage) {
+      case 'Arabic':
+        return {
+          '8_22': '8:00 - 22:00',
+          '7_23': '7:00 - 23:00',
+          '7.5_23.5': '7:30 - 23:30',
+        }[key] ?? '';
+      case 'French':
+        return {
+          '8_22': '8h - 22h',
+          '7_23': '7h - 23h',
+          '7.5_23.5': '7h30 - 23h30',
+        }[key] ?? '';
+      default: // English
+        return {
+          '8_22': '8:00 - 22:00',
+          '7_23': '7:00 - 23:00',
+          '7.5_23.5': '7:30 - 23:30',
+        }[key] ?? '';
+    }
   }
 
   Widget _buildCategoryHeader(BuildContext context, String title) {
@@ -108,10 +207,17 @@ class HammamListScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHammamCard(BuildContext context, String imagePath, String name, 
-      String address, double rating, String hours) {
+  Widget _buildHammamCard(
+    BuildContext context,
+    String imagePath,
+    String name,
+    String location,
+    double rating,
+    String hours,
+    int hammamId,
+  ) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
@@ -123,129 +229,230 @@ class HammamListScreen extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder: (context) => Directionality(
-                textDirection: selectedLanguage == 'Arabic' 
+                textDirection: widget.selectedLanguage == 'Arabic' 
                     ? TextDirection.rtl 
                     : TextDirection.ltr,
                 child: HammamDetailScreen(
+                  hammamId: hammamId,
                   hammamName: name,
-                  selectedLanguage: selectedLanguage,
-                  translations: translations,
+                  selectedLanguage: widget.selectedLanguage,
+                  translations: widget.translations,
                 ),
               ),
             ),
           );
         },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image with decorative border
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFF8BBD0).withOpacity(0.5),
-                    width: 2,
-                  ),
-                  image: DecorationImage(
-                    image: AssetImage(imagePath),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(15),
+                topRight: Radius.circular(15),
               ),
-              const SizedBox(width: 12),
-              // Hammam details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF880E4F),
+              child: imagePath.startsWith('http')
+                ? Image.network(
+                    imagePath,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 180,
+                      color: Colors.grey[200],
+                      child: const Center(
+                        child: Icon(Icons.spa, size: 60, color: Colors.grey),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on, size: 14, color: Colors.pink[300]),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            address,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                      ],
+                  )
+                : Image.asset(
+                    imagePath,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 180,
+                      color: Colors.grey[200],
+                      child: const Center(
+                        child: Icon(Icons.spa, size: 60, color: Colors.grey),
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        RatingBarIndicator(
-                          rating: rating,
-                          itemBuilder: (context, index) => const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                          ),
-                          itemCount: 5,
-                          itemSize: 16,
-                          direction: Axis.horizontal,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          rating.toString(),
+                  ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF880E4F),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8BBD0),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.white, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating.toString(),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, color: Color(0xFFF06292), size: 16),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          style: const TextStyle(
+                            fontSize: 14,
                             color: Colors.grey,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.access_time, size: 14, color: Colors.pink[300]),
-                        const SizedBox(width: 4),
-                        Text(
-                          hours,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, color: Color(0xFFF06292), size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        hours,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF06292),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => Directionality(
+                                  textDirection: widget.selectedLanguage == 'Arabic' 
+                                      ? TextDirection.rtl 
+                                      : TextDirection.ltr,
+                                  child: HammamDetailScreen(
+                                    hammamId: hammamId,
+                                    hammamName: name,
+                                    selectedLanguage: widget.selectedLanguage,
+                                    translations: widget.translations,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            widget.selectedLanguage == 'Arabic' ? 'عرض الخدمات' : 'View Services',
+                            style: const TextStyle(color: Colors.white),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const Icon(Icons.chevron_right, color: Color(0xFFF06292)),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class HammamDetailScreen extends StatelessWidget {
+class HammamDetailScreen extends StatefulWidget {
+  final int hammamId;
   final String hammamName;
   final String selectedLanguage;
   final Map<String, Map<String, String>> translations;
-  
+
   const HammamDetailScreen({
     super.key,
+    required this.hammamId,
     required this.hammamName,
     required this.selectedLanguage,
     required this.translations,
   });
+
+  @override
+  State<HammamDetailScreen> createState() => _HammamDetailScreenState();
+}
+
+class _HammamDetailScreenState extends State<HammamDetailScreen> {
+  final ApiService _apiService = ApiService();
+  List<dynamic> _hammamServices = [];
+  bool _isLoading = true;
+  String? _error;
+
+  String _translate(String key) {
+    return widget.translations[widget.selectedLanguage]?[key] ?? widget.translations['English']?[key] ?? key;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHammamServices();
+  }
+
+  Future<void> _loadHammamServices() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+      
+      final services = await _apiService.getHammamServices(widget.hammamId);
+      
+      setState(() {
+        _hammamServices = services;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -253,10 +460,10 @@ class HammamDetailScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFFDF2F5),
       appBar: AppBar(
         title: Text(
-          hammamName,
+          widget.hammamName,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 18,
           ),
         ),
         backgroundColor: const Color(0xFFF8BBD0),
@@ -266,48 +473,58 @@ class HammamDetailScreen extends StatelessWidget {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             bottom: Radius.circular(20),
+          ),
         ),
       ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-        child: ListView(
-          children: [
-            const SizedBox(height: 10),
-            _buildCategoryHeader(context, selectedLanguage == 'Arabic' ? 'خدمات الحمام' : 'Bath Services'),
-            const SizedBox(height: 15),
-            _buildServiceCard(
-              context,
-              'assets/images/sh.jpg',
-              selectedLanguage == 'Arabic' ? 'استحمام تقليدي' : 'Traditional Bath',
-              selectedLanguage == 'Arabic' ? 'تجربة استحمام تقليدية مع أعشاب طبيعية' : 'Traditional bathing experience with natural herbs',
-              '350',
-              4.5,
-              '45 ${selectedLanguage == 'Arabic' ? 'دقيقة' : 'min'}',
+      body: _isLoading
+        ? const Center(child: CircularProgressIndicator(color: Color(0xFFF8BBD0)))
+        : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $_error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadHammamServices,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF8BBD0),
+                    ),
+                    child: Text(
+                      _translate('try_again'),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : _hammamServices.isEmpty
+            ? Center(
+                child: Text(
+                  widget.selectedLanguage == 'Arabic'
+                    ? 'لا توجد خدمات متاحة لهذا الحمام'
+                    : 'No services available for this hammam',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              )
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+              child: ListView(
+                children: [
+                  const SizedBox(height: 10),
+                  _buildCategoryHeader(context, _translate('available_services')),
+                  const SizedBox(height: 15),
+                  ..._hammamServices.map((service) => _buildServiceCard(
+                    context,
+                    service['name']?.toString() ?? 'Hammam Service',
+                    service['description']?.toString() ?? 'No description',
+                    service['price']?.toString() ?? '0.0',
+                    service['duration']?.toString() ?? '60',
+                    service['id'] != null ? int.tryParse(service['id'].toString()) ?? 1 : 1,
+                  )).toList(),
+                ],
+              ),
             ),
-            _buildServiceCard(
-              context,
-              'assets/images/im.jpg',
-              selectedLanguage == 'Arabic' ? 'عناية كاملة بالشعر' : 'Complete Hair Care',
-              selectedLanguage == 'Arabic' ? 'تنظيف، تطهير وتصفيف شامل للشعر' : 'Cleaning, purification and complete hair styling',
-              '600',
-              4.8,
-              '60 ${selectedLanguage == 'Arabic' ? 'دقيقة' : 'min'}',
-            ),
-            _buildServiceCard(
-              context,
-              'assets/images/spa.jpg',
-              selectedLanguage == 'Arabic' ? 'حمام بخار ومساج' : 'Steam Bath & Massage',
-              selectedLanguage == 'Arabic' ? 'جلسة بخار مع مساج كامل للجسم' : 'Steam session with full body massage',
-              '800',
-              4.9,
-              '90 ${selectedLanguage == 'Arabic' ? 'دقيقة' : 'min'}',
-            ),
-            const SizedBox(height: 30),
-            _buildInfoCard(context),
-          ],
-        ),
-      ),
     );
   }
 
@@ -338,353 +555,121 @@ class HammamDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildServiceCard(BuildContext context, String imagePath, String title, 
-      String description, String price, double rating, String duration) {
+  Widget _buildServiceCard(
+    BuildContext context,
+    String name,
+    String description,
+    String price,
+    String duration,
+    int serviceId,
+  ) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(15),
-        onTap: () {
-          _showServiceDetails(context, title, description, price, duration);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Image with decorative border
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFF8BBD0).withOpacity(0.5),
-                        width: 2,
-                      ),
-                      image: DecorationImage(
-                        image: AssetImage(imagePath),
-                        fit: BoxFit.cover,
-                      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF880E4F),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Service details
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF880E4F),
-                          )),
-                        const SizedBox(height: 4),
-                        Text(
-                          description,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            RatingBarIndicator(
-                              rating: rating,
-                              itemBuilder: (context, index) => const Icon(
-                                Icons.star,
-                                color: Colors.amber,
-                              ),
-                              itemCount: 5,
-                              itemSize: 16,
-                              direction: Axis.horizontal,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              rating.toString(),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Price and booking button
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$price MRU',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFEC407A),
-                        ),
-                      ),
-                      Text(
-                        duration,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF06292),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 15, vertical: 6),
-                      elevation: 2,
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Directionality(
-                            textDirection: selectedLanguage == 'Arabic' 
-                                ? TextDirection.rtl 
-                                : TextDirection.ltr,
-                            child: ReservationScreen(
-                              productName: title,
-                              selectedLanguage: selectedLanguage,
-                              translations: translations,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      selectedLanguage == 'Arabic' ? 'احجز الآن' : 'Book Now',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFCE4EC),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.info_outline, color: Color(0xFFEC407A)),
-              const SizedBox(width: 8),
-              Text(
-                selectedLanguage == 'Arabic' ? 'معلومات هامة' : 'Important Information',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF880E4F),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            selectedLanguage == 'Arabic' 
-                ? '• جميع خدماتنا تستخدم منتجات طبيعية وعضوية\n• يرجى الحضور قبل 15 دقيقة من الموعد المحدد\n• الإلغاء قبل 24 ساعة لاسترداد المبلغ كاملاً'
-                : '• All our services use natural and organic products\n• Please arrive 15 minutes before your appointment\n• Cancel 24 hours in advance for full refund',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[700],
-              height: 1.6,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showServiceDetails(BuildContext context, String title, String description, 
-      String price, String duration) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(25),
-            ),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 60,
-                  height: 5,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(5),
+                    color: const Color(0xFFF8BBD0),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF880E4F),
-                ),
-              ),
-              const SizedBox(height: 15),
-              Row(
-                children: [
-                  Icon(Icons.access_time, color: Colors.pink[300], size: 18),
-                  const SizedBox(width: 5),
-                  Text(
-                    duration,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Icon(Icons.attach_money, color: Colors.pink[300], size: 18),
-                  const SizedBox(width: 5),
-                  Text(
+                  child: Text(
                     '$price MRU',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFEC407A),
+                      color: Colors.white,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Text(
-                selectedLanguage == 'Arabic' ? 'وصف الخدمة' : 'Service Description',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[700],
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 25),
-              Text(
-                selectedLanguage == 'Arabic' ? 'ما تشمله الخدمة' : 'What\'s Included',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildIncludedItem(Icons.spa, selectedLanguage == 'Arabic' ? 'أعشاب طبيعية' : 'Natural Herbs'),
-              _buildIncludedItem(Icons.clean_hands, selectedLanguage == 'Arabic' ? 'أدوات احترافية' : 'Professional Tools'),
-              _buildIncludedItem(Icons.emoji_people, selectedLanguage == 'Arabic' ? 'خدمة من خبراء' : 'Expert Service'),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF06292),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 3),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.timer, color: Color(0xFFF06292), size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  widget.selectedLanguage == 'Arabic' 
+                      ? '$duration دقيقة' 
+                      : '$duration minutes',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
                   ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => Directionality(
-                          textDirection: selectedLanguage == 'Arabic' 
-                              ? TextDirection.rtl 
-                              : TextDirection.ltr,
-                          child: ReservationScreen(
-                            productName: title,
-                            selectedLanguage: selectedLanguage,
-                            translations: translations,
-                          ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF06292),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => Directionality(
+                        textDirection: widget.selectedLanguage == 'Arabic' 
+                            ? TextDirection.rtl 
+                            : TextDirection.ltr,
+                        child: ReservationScreen(
+                          productName: name,
+                          serviceId: serviceId,
+                          selectedLanguage: widget.selectedLanguage,
+                          translations: widget.translations,
+                          serviceType: 'hammam',
                         ),
                       ),
-                    );
-                  },
-                  child: Text(
-                    selectedLanguage == 'Arabic' ? 'احجز هذه الخدمة' : 'Book This Service',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
                     ),
+                  );
+                },
+                child: Text(
+                  widget.selectedLanguage == 'Arabic' ? 'حجز' : 'Book Now',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildIncludedItem(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFFF06292)),
-          const SizedBox(width: 10),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 14,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

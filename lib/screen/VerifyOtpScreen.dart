@@ -43,10 +43,10 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('${Config.apiBaseUrl}/api/verify-otp/'),
+        Uri.parse('${Config.apiUrl}/api/verify-otp/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'phone_number': widget.phoneNumber,
+          'phone': widget.phoneNumber,
           'otp': _otpController.text,
           ...widget.registrationData,
         }),

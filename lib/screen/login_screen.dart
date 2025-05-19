@@ -186,41 +186,40 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(25),
                       ),
                     ),
-                  // Update your login screen's onPressed handler
-onPressed: () async {
-  if (_formKey.currentState!.validate()) {
-    try {
-      final response = await ApiService().post('api/token/', {
-        'phone_number': _usernameController.text,
-        'password': _passwordController.text,
-      });
-      
-      // Save token and user data
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', response['access']);
-      await prefs.setString('user', jsonEncode(response));
-      
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => Directionality(
-            textDirection: widget.selectedLanguage == 'Arabic' 
-                ? TextDirection.rtl 
-                : TextDirection.ltr,
-            child: ModernHomeScreen(
-              selectedLanguage: widget.selectedLanguage,
-              translations: widget.translations,
-            ),
-          ),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
-  }
-},
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        try {
+                          final response = await ApiService().post('api/token/', {
+                            'phone': _usernameController.text,
+                            'password': _passwordController.text,
+                          });
+                          
+                          // Save token and user data
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString('token', response['access']);
+                          await prefs.setString('user', jsonEncode(response));
+                          
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Directionality(
+                                textDirection: widget.selectedLanguage == 'Arabic' 
+                                    ? TextDirection.rtl 
+                                    : TextDirection.ltr,
+                                child: ModernHomeScreen(
+                                  selectedLanguage: widget.selectedLanguage,
+                                  translations: widget.translations,
+                                ),
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(e.toString())),
+                          );
+                        }
+                      }
+                    },
                     child: Text(
                       widget.translations[widget.selectedLanguage]!['login']!,
                       style: const TextStyle(
@@ -233,25 +232,25 @@ onPressed: () async {
                 ),
                 const SizedBox(height: 20),
                 TextButton(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChangePasswordScreen(
-          selectedLanguage: widget.selectedLanguage,
-          translations: widget.translations,
-        ),
-      ),
-    );
-  },
-  child: Text(
-    widget.translations[widget.selectedLanguage]!['forgotPassword'] ?? 'Forgot Password?',
-    style: TextStyle(
-      color: Colors.white,
-      decoration: TextDecoration.underline,
-    ),
-  ),
-),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChangePasswordScreen(
+                          selectedLanguage: widget.selectedLanguage,
+                          translations: widget.translations,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    widget.translations[widget.selectedLanguage]!['forgotPassword'] ?? 'Forgot Password?',
+                    style: TextStyle(
+                      color: Colors.white,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

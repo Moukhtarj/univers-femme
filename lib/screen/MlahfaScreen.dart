@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/api_service.dart';
+import 'command_screen.dart';
 
-class MelhfaScreen extends StatelessWidget {
+class MelhfaScreen extends StatefulWidget {
   final String selectedLanguage;
   final Map<String, Map<String, String>> translations;
   
@@ -13,12 +15,57 @@ class MelhfaScreen extends StatelessWidget {
   });
 
   @override
+  State<MelhfaScreen> createState() => _MelhfaScreenState();
+}
+
+class _MelhfaScreenState extends State<MelhfaScreen> {
+  final ApiService _apiService = ApiService();
+  List<dynamic> _melhfaTypes = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMelhfaTypes();
+  }
+
+  Future<void> _fetchMelhfaTypes() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final types = await _apiService.getMelhfaTypes();
+      
+      // Process types to ensure image URLs are complete
+      for (var type in types) {
+        if (type['image'] != null && type['image'].toString().isNotEmpty && !type['image'].toString().startsWith('http')) {
+          // If the image path doesn't start with http, assume it's a relative path and prepend the base URL
+          type['image'] = '${_apiService.baseUrl}${type['image']}';
+        }
+      }
+
+      setState(() {
+        _melhfaTypes = types;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFDF2F5),
       appBar: AppBar(
         title: Text(
-          translations[selectedLanguage]?['melhfa'] ?? 'Melhfa',
+          widget.translations[widget.selectedLanguage]?['melhfa'] ?? 'Melhfa',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -34,34 +81,49 @@ class MelhfaScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-        child: ListView(
-          children: [
-            const SizedBox(height: 10),
-            _buildCategoryHeader(context, selectedLanguage == 'Arabic' ? 'أنواع الملاحف' : 'Types of Melhfas'),
-            const SizedBox(height: 15),
-            _buildMelhfaTypeCard(
-              context,
-              'assets/images/melhfa_koura.jpg',
-              selectedLanguage == 'Arabic' ? 'ملاحف الكرة' : 'Koura Melhfa',
-              4.5,
-            ),
-            _buildMelhfaTypeCard(
-              context,
-              'assets/images/melhfa_gaz.jpg',
-              selectedLanguage == 'Arabic' ? 'ملاحف گاز' : 'Gaz Melhfa',
-              4.7,
-            ),
-            _buildMelhfaTypeCard(
-              context,
-              'assets/images/melhfa_khayata.jpg',
-              selectedLanguage == 'Arabic' ? 'ملاحف الخياطة' : 'Khayata Melhfa',
-              4.8,
-            ),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFF06292)))
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _fetchMelhfaTypes,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF06292),
+                        ),
+                        child: Text(
+                          widget.translations[widget.selectedLanguage]?['tryAgain'] ?? 'Try Again',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                  child: ListView(
+                    children: [
+                      const SizedBox(height: 10),
+                      _buildCategoryHeader(context, widget.selectedLanguage == 'Arabic' ? 'أنواع الملاحف' : 'Types of Melhfas'),
+                      const SizedBox(height: 15),
+                      ..._melhfaTypes.map((type) => _buildMelhfaTypeCard(
+                        context,
+                        type['image']?.toString() ?? 'assets/images/m1.jpg',
+                        type['name']?.toString() ?? 'Melhfa',
+                        type['rating'] != null ? double.tryParse(type['rating'].toString()) ?? 4.5 : 4.5,
+                        type['id'] != null ? int.tryParse(type['id'].toString()) ?? 1 : 1,
+                      )).toList(),
+                    ],
+                  ),
+                ),
     );
   }
 
@@ -92,7 +154,25 @@ class MelhfaScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMelhfaTypeCard(BuildContext context, String imagePath, String name, double rating) {
+  Widget _buildMelhfaTypeCard(BuildContext context, String imagePath, String name, double rating, int typeId) {
+    bool isNetworkImage = imagePath.startsWith('http');
+    
+    // Map the name to the type display name based on Django model choice field
+    String typeDisplay = name;
+    String description = '';
+    
+    // Map to the TYPE_CHOICES from the Django model
+    if (name.toLowerCase() == 'gaz') {
+      typeDisplay = widget.selectedLanguage == 'Arabic' ? 'غاز' : 'Gaz';
+      description = widget.selectedLanguage == 'Arabic' ? 'ملحفة غاز تقليدية' : 'Traditional Gaz melhfa';
+    } else if (name.toLowerCase() == 'karra') {
+      typeDisplay = widget.selectedLanguage == 'Arabic' ? 'كرة' : 'Karra';
+      description = widget.selectedLanguage == 'Arabic' ? 'ملحفة كرة مميزة' : 'Special Karra melhfa';
+    } else if (name.toLowerCase() == 'khyata') {
+      typeDisplay = widget.selectedLanguage == 'Arabic' ? 'خياطة' : 'Khyata';
+      description = widget.selectedLanguage == 'Arabic' ? 'ملحفة خياطة فاخرة' : 'Luxury Khyata melhfa';
+    }
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
       elevation: 2,
@@ -105,15 +185,11 @@ class MelhfaScreen extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => Directionality(
-                textDirection: selectedLanguage == 'Arabic' 
-                    ? TextDirection.rtl 
-                    : TextDirection.ltr,
-                child: MelhfaListScreen(
-                  melhfaType: name,
-                  selectedLanguage: selectedLanguage,
-                  translations: translations,
-                ),
+              builder: (context) => MelhfaListScreen(
+                melhfaType: typeDisplay,
+                typeId: typeId,
+                selectedLanguage: widget.selectedLanguage,
+                translations: widget.translations,
               ),
             ),
           );
@@ -131,24 +207,53 @@ class MelhfaScreen extends StatelessWidget {
                     color: const Color(0xFFF8BBD0).withOpacity(0.5),
                     width: 2,
                   ),
-                  image: DecorationImage(
-                    image: AssetImage(imagePath),
-                    fit: BoxFit.cover,
-                  ),
-                )),
+                ),
+                child: isNetworkImage
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        imagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported, size: 25, color: Colors.grey),
+                        ),
+                      ),
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        imagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported, size: 25, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      typeDisplay,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF880E4F),
                       )),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
+                    if (description.isNotEmpty)
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         RatingBarIndicator(
@@ -182,17 +287,64 @@ class MelhfaScreen extends StatelessWidget {
   }
 }
 
-class MelhfaListScreen extends StatelessWidget {
+class MelhfaListScreen extends StatefulWidget {
   final String melhfaType;
+  final int typeId;
   final String selectedLanguage;
   final Map<String, Map<String, String>> translations;
   
   const MelhfaListScreen({
     super.key,
     required this.melhfaType,
+    required this.typeId,
     required this.selectedLanguage,
     required this.translations,
   });
+
+  @override
+  State<MelhfaListScreen> createState() => _MelhfaListScreenState();
+}
+
+class _MelhfaListScreenState extends State<MelhfaListScreen> {
+  final ApiService _apiService = ApiService();
+  List<dynamic> _melhfaModels = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMelhfaModels();
+  }
+
+  Future<void> _fetchMelhfaModels() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final models = await _apiService.getMelhfaModels(widget.typeId);
+      
+      // Process models to ensure image URLs are complete
+      for (var model in models) {
+        if (model['image'] != null && model['image'].toString().isNotEmpty && !model['image'].toString().startsWith('http')) {
+          // If the image path doesn't start with http, assume it's a relative path and prepend the base URL
+          model['image'] = '${_apiService.baseUrl}${model['image']}';
+        }
+      }
+
+      setState(() {
+        _melhfaModels = models;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -200,10 +352,10 @@ class MelhfaListScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFFDF2F5),
       appBar: AppBar(
         title: Text(
-          melhfaType,
+          widget.melhfaType,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
         backgroundColor: const Color(0xFFF8BBD0),
@@ -216,44 +368,49 @@ class MelhfaListScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-        child: ListView(
-          children: [
-            const SizedBox(height: 10),
-            _buildCategoryHeader(context, selectedLanguage == 'Arabic' ? 'الملاحف المتوفرة' : 'Available Melhfas'),
-            const SizedBox(height: 15),
-            _buildMelhfaItem(
-              context,
-              'assets/images/melhfa3.jpg',
-              selectedLanguage == 'Arabic' ? 'ملحفة أنيقة' : 'Blue Embroidered Melhfa',
-              '22134478',
-              '4000 MRU',
-            ),
-            _buildMelhfaItem(
-              context,
-              'assets/images/melhfa2.jpg',
-              selectedLanguage == 'Arabic' ? 'ملحفة  أنيقة' : 'Red Classic Melhfa',
-              '34537711',
-              '3000 MRU',
-            ),
-            _buildMelhfaItem(
-              context,
-              'assets/images/melhfa1.jpg',
-              selectedLanguage == 'Arabic' ? 'ملحفة  أنيقة' : 'Elegant Black Melhfa',
-              '44109921',
-              '2800 MRU',
-            ),
-             _buildMelhfaItem(
-              context,
-              'assets/images/melhfa4.jpg',
-              selectedLanguage == 'Arabic' ? 'ملحفة  أنيقة' : 'Elegant Black Melhfa',
-              '44109921',
-              '2000 MRU',
-            ),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFF06292)))
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _fetchMelhfaModels,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF06292),
+                        ),
+                        child: Text(
+                          widget.translations[widget.selectedLanguage]?['tryAgain'] ?? 'Try Again',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                  child: ListView(
+                    children: [
+                      const SizedBox(height: 10),
+                      _buildCategoryHeader(context, widget.selectedLanguage == 'Arabic' ? 'موديلات متوفرة' : 'Available Models'),
+                      const SizedBox(height: 15),
+                      ..._melhfaModels.map((model) => _buildMelhfaModelCard(
+                        context,
+                        model['image']?.toString() ?? 'assets/images/placeholder.jpg',
+                        model['name']?.toString() ?? 'Melhfa Model',
+                        model['price']?.toString() ?? '0',
+                        model['id'] != null ? int.tryParse(model['id'].toString()) ?? 1 : 1,
+                      )).toList(),
+                    ],
+                  ),
+                ),
     );
   }
 
@@ -284,380 +441,128 @@ class MelhfaListScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMelhfaItem(BuildContext context, String imagePath, String name, 
-      String phoneNumber, String price) {
+  Widget _buildMelhfaModelCard(BuildContext context, String imagePath, String name, String price, int id) {
+    bool isNetworkImage = imagePath.startsWith('http');
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CommandScreen(
+                productName: name,
+                serviceId: id,
+                selectedLanguage: widget.selectedLanguage,
+                translations: widget.translations,
+                productImage: imagePath,
+                productPrice: double.tryParse(price) ?? 0.0,
+              ),
+            ),
+          );
+        },
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Melhfa image
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    image: DecorationImage(
-                      image: AssetImage(imagePath),
-                      fit: BoxFit.cover,
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(15),
+                topRight: Radius.circular(15),
+              ),
+              child: isNetworkImage
+                ? Image.network(
+                    imagePath,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 200,
+                      width: double.infinity,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+                    ),
+                  )
+                : Image.asset(
+                    imagePath,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 200,
+                      width: double.infinity,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // Melhfa details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF880E4F),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${widget.selectedLanguage == 'Arabic' ? 'السعر: ' : 'Price: '} $price MRU',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.pink[600],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CommandScreen(
+                              productName: name,
+                              serviceId: id,
+                              selectedLanguage: widget.selectedLanguage,
+                              translations: widget.translations,
+                              productImage: imagePath,
+                              productPrice: double.tryParse(price) ?? 0.0,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF06292),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
+                        widget.selectedLanguage == 'Arabic' ? 'طلب شراء' : 'Order Now',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF880E4F),
-                        )),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.phone, size: 16, color: Colors.pink[300]),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () => _launchPhoneCall(phoneNumber),
-                            child: Text(
-                              phoneNumber,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.blue[600],
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // Price
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFEC407A)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF06292),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Directionality(
-                            textDirection: selectedLanguage == 'Arabic' 
-                                ? TextDirection.rtl 
-                                : TextDirection.ltr,
-                            child: OrderMelhfaScreen(
-                              melhfaName: name,
-                              melhfaPrice: price,
-                              phoneNumber: phoneNumber,
-                              selectedLanguage: selectedLanguage,
-                              translations: translations,
-                            ),
-                          ),
+                          color: Colors.white,
                         ),
-                      );
-                    },
-                    child: Text(
-                      selectedLanguage == 'Arabic' ? 'اطلب الآن' : 'Order Now',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Future<void> _launchPhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    } else {
-      throw 'Could not launch $launchUri';
-    }
-  }
-}
-
-class OrderMelhfaScreen extends StatefulWidget {
-  final String melhfaName;
-  final String melhfaPrice;
-  final String phoneNumber;
-  final String selectedLanguage;
-  final Map<String, Map<String, String>> translations;
-  
-  const OrderMelhfaScreen({
-    super.key,
-    required this.melhfaName,
-    required this.melhfaPrice,
-    required this.phoneNumber,
-    required this.selectedLanguage,
-    required this.translations,
-  });
-
-  @override
-  State<OrderMelhfaScreen> createState() => _OrderMelhfaScreenState();
-}
-
-class _OrderMelhfaScreenState extends State<OrderMelhfaScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _phoneController = TextEditingController();
-  int _quantity = 1;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _addressController.dispose();
-    _phoneController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    bool isRTL = widget.selectedLanguage == 'Arabic';
-    
-    return Scaffold(
-      backgroundColor: const Color(0xFFFDF2F5),
-      appBar: AppBar(
-        title: Text(
-          widget.translations[widget.selectedLanguage]?['order'] ?? 'Order',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
-        ),
-        backgroundColor: const Color(0xFFF8BBD0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            bottom: Radius.circular(20),
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Melhfa details
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.melhfaName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF880E4F)),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${isRTL ? 'السعر: ' : 'Price: '}${widget.melhfaPrice}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFFEC407A)),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Text(
-                            isRTL ? 'الكمية: ' : 'Quantity: ',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.remove),
-                            onPressed: () {
-                              setState(() {
-                                if (_quantity > 1) _quantity--;
-                              });
-                            },
-                          ),
-                          Text(
-                            _quantity.toString(),
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.add),
-                            onPressed: () {
-                              setState(() {
-                                _quantity++;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              // Customer information
-              Text(
-                isRTL ? 'معلومات العميل' : 'Customer Information',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF880E4F)),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: isRTL ? 'الاسم الكامل' : 'Full Name',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.person),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return isRTL ? 'الرجاء إدخال الاسم' : 'Please enter your name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _phoneController,
-                decoration: InputDecoration(
-                  labelText: isRTL ? 'رقم الهاتف' : 'Phone Number',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.phone),
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return isRTL ? 'الرجاء إدخال رقم الهاتف' : 'Please enter your phone number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _addressController,
-                decoration: InputDecoration(
-                  labelText: isRTL ? 'العنوان' : 'Address',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.location_on),
-                ),
-                maxLines: 2,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return isRTL ? 'الرجاء إدخال العنوان' : 'Please enter your address';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              
-              // Order button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF06292),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _showOrderConfirmation(context);
-                    }
-                  },
-                  child: Text(
-                    isRTL ? 'تأكيد الطلب' : 'Confirm Order',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showOrderConfirmation(BuildContext context) {
-    bool isRTL = widget.selectedLanguage == 'Arabic';
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isRTL ? 'تم تأكيد الطلب' : 'Order Confirmed'),
-        content: Text(
-          isRTL 
-              ? 'شكراً لك! تم استلام طلبك وسنتصل بك قريباً.'
-              : 'Thank you! Your order has been received and we will call you soon.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: Text(isRTL ? 'حسناً' : 'OK'),
-          ),
-        ],
       ),
     );
   }
