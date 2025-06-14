@@ -1,13 +1,42 @@
+// buildscript {
+//     ext.kotlin_version = '1.9.22'
+//     repositories {
+//         google()
+//         mavenCentral()
+//     }
+//     dependencies {
+//         classpath 'com.android.tools.build:gradle:8.2.0'
+//         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+//     }
+// }
+
+// allprojects {
+//     repositories {
+//         google()
+//         mavenCentral()
+//     }
+// }
+
+// rootProject.buildDir = '../build'
+
+
+// tasks.register("clean", Delete) {
+//     delete rootProject.buildDir
+// }
+
 buildscript {
-    ext.kotlin_version = '1.9.22'
+   ext.kotlin_version = '1.8.10' // Or a compatible Kotlin version
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.0'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10"
+        classpath 'com.android.tools.build:gradle:8.3.2'  // Make sure this is compatible with your Flutter version
+         // Flutter plugin for Android projects
+        classpath 'com.google.gms:google-services:4.3.15'  // Google Services plugin (optional if you're using Firebase or Google Maps)
     }
+    
 }
 
 allprojects {
@@ -17,12 +46,12 @@ allprojects {
     }
 }
 
-rootProject.buildDir = '../build'
+rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
 subprojects {
-    project.evaluationDependsOn(':app')
+    project.evaluationDependsOn(":app")
 }
 
 tasks.register("clean", Delete) {

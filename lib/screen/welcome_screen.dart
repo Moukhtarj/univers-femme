@@ -188,7 +188,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     'minutes': 'minutes',
     'search': 'Rechercher',
     'categories': 'Catégories',
-    'wishlist': 'Liste de souhaits',
+    'wishlist': 'souhaits',
     'language': 'Langue',
     'historique': 'Historique',
 

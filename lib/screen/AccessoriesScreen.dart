@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'reservation_screen.dart';
+import 'reservation_scre.dart';
 import 'command_screen.dart';
 
 class AccessoriesScreen extends StatefulWidget {

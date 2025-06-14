@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'reservation_screen.dart';
+import '../services/location_service.dart';
+import 'package:location/location.dart' show LocationData;
+import 'reservations_screen.dart';
 import '../services/api_service.dart';
 import 'command_screen.dart';
+import '../widgets/review_section.dart';
 
 class HennaScreen extends StatefulWidget {
   final String selectedLanguage;
@@ -20,14 +23,53 @@ class HennaScreen extends StatefulWidget {
 
 class _HennaScreenState extends State<HennaScreen> {
   final ApiService _apiService = ApiService();
+  final LocationService _locationService = LocationService();
   List<dynamic> _hennaServices = [];
   bool _isLoading = true;
   String? _error;
+  LocationData? _currentLocation;
 
   @override
   void initState() {
     super.initState();
     _loadHennaServices();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      final location = await _locationService.getCurrentLocation();
+      if (location == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.selectedLanguage == 'Arabic'
+                    ? 'يرجى تفعيل خدمة الموقع لعرض المسافات'
+                    : 'Please enable location services to show distances',
+              ),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+      setState(() {
+        _currentLocation = location;
+      });
+    } catch (e) {
+      print('Error getting location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.selectedLanguage == 'Arabic'
+                  ? 'حدث خطأ في الحصول على الموقع'
+                  : 'Error getting location',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadHennaServices() async {
@@ -69,6 +111,60 @@ class _HennaScreenState extends State<HennaScreen> {
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _openMaps(double lat, double lng, String label) async {
+    try {
+      final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.selectedLanguage == 'Arabic'
+                    ? 'لا يمكن فتح الخريطة'
+                    : 'Could not open maps',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error opening maps: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.selectedLanguage == 'Arabic'
+                  ? 'حدث خطأ في فتح الخريطة'
+                  : 'Error opening maps',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  String _calculateDistance(double? lat, double? lng) {
+    if (_currentLocation == null || lat == null || lng == null) {
+      return widget.selectedLanguage == 'Arabic' ? 'المسافة غير متوفرة' : 'Distance unavailable';
+    }
+
+    try {
+      double distanceInMeters = _locationService.calculateDistance(
+        _currentLocation!.latitude!,
+        _currentLocation!.longitude!,
+        lat,
+        lng,
+      );
+
+      return _locationService.formatDistance(distanceInMeters);
+    } catch (e) {
+      print('Error calculating distance: $e');
+      return widget.selectedLanguage == 'Arabic' ? 'المسافة غير متوفرة' : 'Distance unavailable';
     }
   }
 
@@ -121,19 +217,23 @@ class _HennaScreenState extends State<HennaScreen> {
                     style: const TextStyle(fontSize: 16),
                   ),
                 )
-              : Padding(
-                  padding: const EdgeInsets.all(16.0),
+              : SizedBox(
+                  height: MediaQuery.of(context).size.height - 100, // Account for app bar and padding
                   child: ListView.builder(
                     itemCount: _hennaServices.length,
                     itemBuilder: (context, index) {
                       final service = _hennaServices[index];
+                      if (service == null) return const SizedBox.shrink();
+                      
                       return _buildServiceCard(
                         context,
-                        service['image'] ?? 'assets/images/henna1.jpg',
-                        service['name'] ?? 'Henna Service',
-                        service['phone'] ?? '+222 22134478',
-                        service['id'] ?? 1,
+                        service['image']?.toString() ?? 'assets/images/henna1.jpg',
+                        service['name']?.toString() ?? 'Henna Service',
+                        service['phone']?.toString() ?? '+222 22134478',
+                        service['id'] != null ? int.tryParse(service['id'].toString()) ?? 1 : 1,
                         service['price']?.toString() ?? '3500.0',
+                        double.tryParse(service['latitude']?.toString() ?? ''),
+                        double.tryParse(service['longitude']?.toString() ?? ''),
                       );
                     },
                   ),
@@ -142,7 +242,16 @@ class _HennaScreenState extends State<HennaScreen> {
     );
   }
 
-  Widget _buildServiceCard(BuildContext context, String imagePath, String serviceName, String phoneNumber, int serviceId, String price) {
+  Widget _buildServiceCard(
+    BuildContext context,
+    String imagePath,
+    String serviceName,
+    String phoneNumber,
+    int serviceId,
+    String price,
+    double? latitude,
+    double? longitude,
+  ) {
     bool isNetworkImage = imagePath.startsWith('http');
     
     return Card(
@@ -151,185 +260,232 @@ class _HennaScreenState extends State<HennaScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => Directionality(
-                textDirection: widget.selectedLanguage == 'Arabic' 
-                    ? TextDirection.rtl 
-                    : TextDirection.ltr,
-                child: ReservationScreen(
-                  productName: serviceName,
-                  serviceId: serviceId,
-                  selectedLanguage: widget.selectedLanguage,
-                  translations: widget.translations,
-                  serviceType: 'henna',
-                ),
-              ),
-            ),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
             borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFFFFF9FB),
-                Color(0xFFFFF0F5),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Row(
-            children: [
-              // Circular avatar with image
-              Hero(
-                tag: serviceName,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFE8AEC1),
-                      width: 2,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => Directionality(
+                    textDirection: widget.selectedLanguage == 'Arabic' 
+                        ? TextDirection.rtl 
+                        : TextDirection.ltr,
+                    child: ReservationsScreen(
+                      selectedLanguage: widget.selectedLanguage,
+                      translations: widget.translations,
+                      serviceType: 'henna',
+                      serviceId: serviceId,
                     ),
-                  ),
-                  child: ClipOval(
-                    child: isNetworkImage
-                      ? Image.network(
-                          imagePath,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Center(
-                            child: Icon(
-                              Icons.spa,
-                              size: 30,
-                              color: const Color(0xFFE8AEC1).withOpacity(0.6),
-                            ),
-                          ),
-                        )
-                      : Image.asset(
-                          imagePath,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Center(
-                            child: Icon(
-                              Icons.spa,
-                              size: 30,
-                              color: const Color(0xFFE8AEC1).withOpacity(0.6),
-                            ),
-                          ),
-                        ),
                   ),
                 ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFFFF9FB),
+                    Color(0xFFFFF0F5),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
-              const SizedBox(width: 16),
-              
-              // Service info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      serviceName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF880E4F),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Hero(
+                    tag: serviceName,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFE8AEC1),
+                          width: 2,
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: isNetworkImage
+                          ? Image.network(
+                              imagePath,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Center(
+                                child: Icon(
+                                  Icons.spa,
+                                  size: 30,
+                                  color: const Color(0xFFE8AEC1).withOpacity(0.6),
+                                ),
+                              ),
+                            )
+                          : Image.asset(
+                              imagePath,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Center(
+                                child: Icon(
+                                  Icons.spa,
+                                  size: 30,
+                                  color: const Color(0xFFE8AEC1).withOpacity(0.6),
+                                ),
+                              ),
+                            ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$price MRU',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFFE8AEC1),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Call button
-                        InkWell(
-                          onTap: () => _launchPhoneCall(phoneNumber),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8AEC1).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.phone,
-                                  size: 16,
-                                  color: Color(0xFFE8AEC1),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  widget.selectedLanguage == 'Arabic' ? 'اتصل الآن' : 'Call',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFFE8AEC1),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        Text(
+                          serviceName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF880E4F),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        
-                        // Book button
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE8AEC1),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$price MRU',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFFE8AEC1),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.directions_walk, color: Color(0xFFE8AEC1), size: 16),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _calculateDistance(latitude, longitude),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => Directionality(
-                                    textDirection: widget.selectedLanguage == 'Arabic' 
-                                        ? TextDirection.rtl 
-                                        : TextDirection.ltr,
-                                    child: ReservationScreen(
-                                      productName: serviceName,
-                                      serviceId: serviceId,
-                                      selectedLanguage: widget.selectedLanguage,
-                                      translations: widget.translations,
-                                      serviceType: 'henna',
+                            if (latitude != null && longitude != null)
+                              TextButton(
+                                onPressed: () => _openMaps(latitude, longitude, serviceName),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.map, color: Color(0xFFE8AEC1), size: 16),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      widget.selectedLanguage == 'Arabic' ? 'عرض على الخريطة' : 'View on Map',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFFE8AEC1),
+                                      ),
                                     ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            InkWell(
+                              onTap: () => _launchPhoneCall(phoneNumber),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE8AEC1).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.phone,
+                                      size: 16,
+                                      color: Color(0xFFE8AEC1),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      widget.selectedLanguage == 'Arabic' ? 'اتصل الآن' : 'Call',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFFE8AEC1),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFE8AEC1),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => Directionality(
+                                        textDirection: widget.selectedLanguage == 'Arabic' 
+                                            ? TextDirection.rtl 
+                                            : TextDirection.ltr,
+                                        child: ReservationsScreen(
+                                          selectedLanguage: widget.selectedLanguage,
+                                          translations: widget.translations,
+                                          serviceType: 'henna',
+                                          serviceId: serviceId,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  widget.selectedLanguage == 'Arabic' ? 'حجز' : 'Book',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                              );
-                            },
-                            child: Text(
-                              widget.selectedLanguage == 'Arabic' ? 'حجز' : 'Book',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+          ReviewSection(
+            serviceType: 'henna',
+            serviceId: serviceId,
+            serviceName: serviceName,
+          ),
+        ],
       ),
     );
   }

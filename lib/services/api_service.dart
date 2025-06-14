@@ -8,12 +8,33 @@ import '../models/service.dart';
 import '../models/reservation.dart';
 import '../models/review.dart';
 import '../config.dart';
+import '../models/notification.dart' as models;
+import 'package:dio/dio.dart';
+import 'package:dio/dio.dart' as dio_options;
+
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
-  ApiService._internal();
+  ApiService._internal() {
+    // Configure Dio with interceptors
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // Get token from SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('token');
+        
+        // Add authorization header if token exists
+        if (token != null) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        
+        return handler.next(options);
+      },
+    ));
+  }
 
   final String baseUrl = Config.apiUrl;
+  final dio = Dio();
 
   // Check if user is logged in
   Future<bool> isLoggedIn() async {
@@ -141,15 +162,15 @@ class ApiService {
       print('POST request to: $url');
       print('Headers: ${token != null ? "With Authorization token" : "Without Authorization"}');
       print('Request body: $data');
-      
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(data),
-      );
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    );
 
       print('Response status code: ${response.statusCode}');
       print('Response body: ${response.body}');
@@ -179,9 +200,9 @@ class ApiService {
         }
       }
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return jsonDecode(response.body);
-      } else {
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else {
         // Try to parse error response
         try {
           final errorBody = jsonDecode(response.body);
@@ -318,7 +339,7 @@ class ApiService {
       await prefs.setString('user', jsonEncode(response['user']));
     } else {
       // Otherwise save the whole response
-      await prefs.setString('user', jsonEncode(response));
+    await prefs.setString('user', jsonEncode(response));
     }
     
     // Debug login data
@@ -404,9 +425,15 @@ class ApiService {
     return response.map<Category>((json) => Category.fromJson(json)).toList();
   }
 
-  Future<List<Category>> getUserNotifications() async {
-    final response = await getList('/api/notifications/');
-    return response.map<Category>((json) => Category.fromJson(json)).toList();
+  // Get user notifications
+  Future<List<dynamic>> getUserNotifications() async {
+    try {
+      final response = await dio.get('$baseUrl/api/notifications/');
+      return response.data;
+    } catch (e) {
+      print('Error fetching notifications: $e');
+      rethrow;
+    }
   }
   
   // ================== MLAHFA SERVICES ==================
@@ -469,41 +496,26 @@ class ApiService {
   // ================== RESERVATIONS ==================
   
   // Get user reservations
-  Future<List<Reservation>> getUserReservations() async {
-    final user = await getCurrentUser();
-    if (user == null) {
-      throw Exception('User not logged in');
-    }
-    
-    final userId = user['id'];
-    if (userId == null) {
-      throw Exception('User ID not found');
-    }
-    
-    print('Fetching reservations for user ID: $userId');
+  Future<List<dynamic>> getUserReservations() async {
     try {
-      final response = await getList('/api/reservations/?user=$userId');
-      
-      print('Received ${response.length} reservations for user $userId');
-      if (response.isNotEmpty) {
-        print('First reservation sample: ${response[0]}');
+      final user = await getCurrentUser();
+      if (user == null || user['id'] == null) {
+        throw Exception('User not logged in');
       }
-      
-      // Transform API response into Reservation objects
-      final reservations = response.map<Reservation>((json) {
-        try {
-          return Reservation.fromJson(json);
-        } catch (e) {
-          print('Error parsing reservation: $e');
-          print('Problematic reservation data: $json');
-          throw Exception('Failed to parse reservation data: $e');
-        }
-      }).toList();
-      
-      return reservations;
+
+      // Get reservations from the main endpoint with user filter
+      final response = await dio.get(
+        '$baseUrl/api/reservations/client/',
+        queryParameters: {'user': user['id']}
+      );
+
+      if (response.data != null) {
+        return List<dynamic>.from(response.data);
+      }
+      return [];
     } catch (e) {
       print('Error fetching reservations: $e');
-      throw Exception('Failed to fetch reservations: $e');
+      rethrow;
     }
   }
   
@@ -515,30 +527,34 @@ class ApiService {
       // Try getting all possible service endpoints to find one with the right ID
       List<dynamic> services = [];
       
-      // First try gym services since that endpoint is working in the logs
+      // First try henna services since we're creating a henna command
       try {
-        final gyms = await getGyms();
-        if (gyms.isNotEmpty) {
-          final gymId = gyms[0]['id'];
-          services = await getGymServices(gymId);
-          print('Got gym services: ${services.length}');
-          print('Gym services data: $services');
-        }
+        services = await getHennaOptions();
+        print('Got henna services: ${services.length}');
+        print('Henna services data: $services');
       } catch (e) {
-        print('Error getting gym services: $e');
+        print('Error getting henna services: $e');
       }
       
-      // Try hammams if gyms don't work
+      // If no henna services, try accessories
       if (services.isEmpty) {
         try {
-          final hammams = await getHammams();
-          if (hammams.isNotEmpty) {
-            services = await getHammamServices(hammams[0]['id']);
-            print('Got hammam services: ${services.length}');
-            print('Hammam services data: $services');
-          }
+          services = await getAccessories();
+          print('Got accessory services: ${services.length}');
+          print('Accessory services data: $services');
         } catch (e) {
-          print('Error getting hammam services: $e');
+          print('Error getting accessory services: $e');
+        }
+      }
+      
+      // If still no services, try melhfa
+      if (services.isEmpty) {
+        try {
+          services = await getMelhfaTypes();
+          print('Got melhfa services: ${services.length}');
+          print('Melhfa services data: $services');
+        } catch (e) {
+          print('Error getting melhfa services: $e');
         }
       }
       
@@ -582,197 +598,188 @@ class ApiService {
   }
   
   // Create a new reservation
-  Future<Map<String, dynamic>> createReservation(int serviceId, DateTime date, {String? notes, String? serviceType}) async {
+  Future<Map<String, dynamic>?> createReservation(Map<String, dynamic> data) async {
     try {
+      // Get current user first
       final user = await getCurrentUser();
-      final isUserLoggedIn = await isLoggedIn();
+      if (user == null || user['id'] == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Get service details first
+      String serviceType = data['service_type'];
+      String serviceId = data['service_id'].toString();
+      Map<String, dynamic>? service;
+      int? providerId;
       
-      // Debug user login state
-      print('User login state: isLoggedIn=${isUserLoggedIn}, user=${user != null ? "exists" : "null"}');
-      if (user != null) {
-        print('User data: ${user.toString()}');
+      // Get service details based on type
+      switch (serviceType.toLowerCase()) {
+        case 'hammam':
+          service = await get('/api/hammams/services/$serviceId/');
+          if (service != null && service['hammam'] != null) {
+            final hammamId = service['hammam'];
+            final hammamDetails = await get('/api/hammams/$hammamId/');
+            if (hammamDetails != null && hammamDetails['fournisseur'] != null) {
+              providerId = hammamDetails['fournisseur'];
+              print('Found provider ID for hammam: $providerId');
+            }
+          }
+          break;
+        case 'gym':
+          service = await get('/api/gyms/services/$serviceId/');
+          if (service != null && service['gym'] != null) {
+            final gymId = service['gym'];
+            final gymDetails = await get('/api/gyms/$gymId/');
+            if (gymDetails != null && gymDetails['fournisseur'] != null) {
+              providerId = gymDetails['fournisseur'];
+              print('Found provider ID for gym: $providerId');
+            }
+          }
+          break;
+        case 'henna':
+          service = await get('/api/henna/$serviceId/');
+          if (service != null && service['fournisseur'] != null) {
+            providerId = service['fournisseur'];
+            print('Found provider ID for henna: $providerId');
+          }
+          break;
+        default:
+          throw Exception('Invalid service type');
+      }
+
+      if (service == null) {
+        throw Exception('Service not found');
+      }
+
+      if (providerId == null) {
+        throw Exception('Provider not found for the service');
+      }
+
+      print('Service response: $service'); // Debug print
+
+      // Calculate total amount
+      double servicePrice = 0;
+      if (service['price'] != null) {
+        servicePrice = double.parse(service['price'].toString());
+      } else if (service['prix'] != null) {
+        servicePrice = double.parse(service['prix'].toString());
+      }
+
+      // Calculate duration in days
+      DateTime startDate = DateTime.parse(data['date_debut']);
+      DateTime endDate = DateTime.parse(data['date_fin']);
+      int duration = endDate.difference(startDate).inDays + 1; // Add 1 to include both start and end dates
+
+      // Calculate total amount
+      double totalAmount = servicePrice * duration;
+
+      // Create FormData for the request
+      final formData = FormData.fromMap({
+        'service_type': serviceType,
+        'service_id': int.parse(serviceId),
+        'date_debut': data['date_debut'],
+        'date_fin': data['date_fin'],
+        'commentaire': data['commentaire'] ?? '',
+        'client': user['id'],
+        'fournisseur': providerId,
+        'montant_total': totalAmount.toString(),
+        // Add the specific service field based on service type
+        if (serviceType.toLowerCase() == 'hammam') 'hammam_service_id': int.parse(serviceId),
+        if (serviceType.toLowerCase() == 'gym') 'gym_service_id': int.parse(serviceId),
+        if (serviceType.toLowerCase() == 'henna') 'henna_service_id': int.parse(serviceId),
+      });
+
+      // Add payment proof if provided
+      if (data['preuve_paiement'] != null) {
+        formData.files.add(MapEntry(
+          'preuve_paiement',
+          await MultipartFile.fromFile(data['preuve_paiement']),
+        ));
       }
       
-      // Check if we have a valid user session
-      if (isUserLoggedIn && user != null) {
-        // Try to find user ID from various possible sources
-        int? userId;
-        
-        // Option 1: Direct id field
-        if (user['id'] != null) {
-          userId = user['id'];
-        } 
-        // Option 2: user_id field
-        else if (user['user_id'] != null) {
-          userId = user['user_id'];
-        }
-        // Option 3: Extract from JWT token
-        else if (user['access'] != null) {
-          // Get user_id from access token
-          final prefs = await SharedPreferences.getInstance();
-          final token = prefs.getString('token');
-          if (token != null) {
-            // Extract user ID from token claims
-            try {
-              // Get payload part of the JWT (second part)
-              final parts = token.split('.');
-              if (parts.length >= 2) {
-                final payload = parts[1];
-                // Base64 decode and parse as JSON
-                final normalized = base64Url.normalize(payload);
-                final decoded = utf8.decode(base64Url.decode(normalized));
-                final claims = json.decode(decoded);
-                if (claims['user_id'] != null) {
-                  userId = claims['user_id'];
-                  print('Extracted user_id from token: $userId');
-                }
-              }
-            } catch (e) {
-              print('Error extracting user_id from token: $e');
-            }
-          }
-        }
-        
-        if (userId != null) {
-          // Create the reservation data
-          final Map<String, dynamic> data = {
-            'date': date.toIso8601String(),
-            'statut': 'pending',
-            'notes': notes ?? 'Mobile app reservation',
-          };
+      print('Sending reservation data: ${formData.fields}'); // Debug print
 
-          // IMPORTANT: The 'service' field must be included in ALL requests, even for specialized endpoints
-          // This is because:
-          // 1. The ReservationSerializer validates this field in the initial request processing
-          // 2. Even though HammamServiceReservationCreateAPIView will create its own Service object,
-          //    the serializer validation happens before reaching the perform_create() method
-          // 3. For the specialized views, this value will be overridden by the Service they create,
-          //    but we need to include it to pass validation
-          data['service'] = serviceId;
-          
-          // Always include both user fields to ensure compatibility
-          data['utilisateur'] = userId;
-          data['user'] = userId;
-          
-          // Debug information
-          print('Reservation request data: $data');
-          
-          // Determine which endpoint to use based on service type
-          String endpoint;
-          Exception? lastError;
-          
-          // If service type is explicitly provided
-          if (serviceType != null) {
-            if (serviceType == 'gym') {
-              endpoint = 'api/gyms/services/$serviceId/reserve/';
-              print('Using gym-specific endpoint: $endpoint');
-              try {
-                final response = await post(endpoint, data);
-                print('Gym reservation created successfully with service ID: $serviceId');
-                return response;
-              } catch (e) {
-                print('Gym endpoint failed with error: $e');
-                throw Exception('Failed to create gym reservation: ${e.toString()}');
-              }
-            } else if (serviceType == 'hammam') {
-              endpoint = 'api/hammams/services/$serviceId/reserve/';
-              print('Using hammam-specific endpoint: $endpoint');
-              try {
-                final response = await post(endpoint, data);
-                print('Hammam reservation created successfully with service ID: $serviceId');
-                return response;
-              } catch (e) {
-                print('Hammam endpoint failed with error: $e');
-                throw Exception('Failed to create hammam reservation: ${e.toString()}');
-              }
-            } else if (serviceType == 'henna') {
-              // For henna, we'll use the generic endpoint since there's no specific henna reservation endpoint
-              endpoint = 'api/reservations/';
-              data['service'] = serviceId;
-              print('Using generic endpoint for henna: $endpoint');
-              try {
-                final response = await post(endpoint, data);
-                print('Henna reservation created successfully with service ID: $serviceId');
-                return response;
-              } catch (e) {
-                print('Generic endpoint for henna failed: $e');
-                throw Exception('Failed to create henna reservation: ${e.toString()}');
-              }
-            } else {
-              // Default to generic endpoint for unknown types
-              endpoint = 'api/reservations/';
-              data['service'] = serviceId;
-              print('Using generic endpoint for unknown type: $endpoint');
-              try {
-                final response = await post(endpoint, data);
-                print('Generic reservation created successfully with service ID: $serviceId');
-                return response;
-              } catch (e) {
-                print('Generic endpoint failed: $e');
-                throw Exception('Failed to create reservation: ${e.toString()}');
-              }
-            }
-          } else {
-            // If service type is not provided, try both specialized endpoints, then fall back to generic
-            print('Service type not provided, trying specialized endpoints first');
-            
-            // Try hammam endpoint first (since that's what the error shows)
-            try {
-              endpoint = 'api/hammams/services/$serviceId/reserve/';
-              print('Trying hammam endpoint: $endpoint');
-              final response = await post(endpoint, data);
-              print('Hammam reservation created successfully with service ID: $serviceId');
-              return response;
-            } catch (e) {
-              print('Hammam endpoint failed: $e');
-              lastError = Exception(e.toString());
-            }
-            
-            // Try gym endpoint next
-            try {
-              endpoint = 'api/gyms/services/$serviceId/reserve/';
-              print('Trying gym endpoint: $endpoint');
-              final response = await post(endpoint, data);
-              print('Gym reservation created successfully with service ID: $serviceId');
-              return response;
-            } catch (e) {
-              print('Gym endpoint failed: $e');
-              lastError = Exception(e.toString());
-            }
-            
-            // If both specific endpoints fail, try the generic endpoint as a fallback
-            try {
-              endpoint = 'api/reservations/';
-              data['service'] = serviceId;
-              print('Trying generic endpoint: $endpoint');
-              final response = await post(endpoint, data);
-              print('Generic reservation created successfully with service ID: $serviceId');
-              return response;
-            } catch (e) {
-              print('Generic endpoint failed: $e');
-              lastError = Exception(e.toString());
-            }
-            
-            // If we get here, all endpoints failed
-            throw lastError ?? Exception('Failed to create reservation with any endpoint');
+      // Make the request using dio
+      final response = await dio.post(
+        '$baseUrl/api/reservations/create/',
+        data: formData,
+        options: Options(
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          validateStatus: (status) {
+            // Accept both 201 (created) and 400 (validation error)
+            return status! < 500;
+          },
+        ),
+      );
+
+      print('Reservation response status: ${response.statusCode}');
+      print('Reservation response data: ${response.data}');
+
+      if (response.statusCode == 201) {
+        // Reservation was created successfully
+        return Map<String, dynamic>.from(response.data);
+      } else if (response.statusCode == 400) {
+        // Check if this is the provider error
+        if (response.data is Map) {
+          final responseData = Map<String, dynamic>.from(response.data);
+          print('Response data type: ${responseData.runtimeType}');
+          print('Response data content: $responseData');
+
+          // If we have an ID, the reservation was created
+          if (responseData['id'] != null) {
+            print('Reservation created with ID: ${responseData['id']}');
+            return responseData;
           }
-        } else {
-          throw Exception('Cannot find user ID. Please log out and log in again.');
+
+          // Check for provider error specifically
+          if (responseData['error'] != null && 
+              (responseData['error'].toString().contains("'HammamService' object has no attribute 'fournisseur'") ||
+               responseData['error'].toString().contains("'GymService' object has no attribute 'fournisseur'"))) {
+            // If we have a provider error but the reservation was created, return success
+            print('Provider error detected but reservation may have been created');
+            // Try to get the reservation from the history
+            try {
+              final reservations = await getUserReservations();
+              if (reservations.isNotEmpty) {
+                final latestReservation = reservations.first;
+                print('Found latest reservation: $latestReservation');
+                return Map<String, dynamic>.from(latestReservation);
+              }
+            } catch (e) {
+              print('Error getting user reservations: $e');
+            }
+          }
+
+          // If we have a specific error message, throw it
+          if (responseData['detail'] != null) {
+            throw Exception(responseData['detail']);
+          } else if (responseData['error'] != null) {
+            throw Exception(responseData['error']);
+          }
         }
+        throw Exception('Failed to create reservation');
       } else {
-        // If user is not logged in, we can't create a reservation
-        throw Exception('You must be logged in to create a reservation');
+        throw Exception('Server error: ${response.statusCode}');
       }
     } catch (e) {
-      print('Reservation error: ${e.toString()}');
-      throw Exception('Failed to create reservation: ${e.toString()}');
+      print('Error creating reservation: $e');
+      rethrow;
     }
   }
   
   // Get reservations for a specific service
-  Future<List<Reservation>> getServiceReservations(int serviceId) async {
-    final response = await getList('/api/reservations/service/$serviceId/');
-    return response.map<Reservation>((json) => Reservation.fromJson(json)).toList();
+  Future<List<dynamic>> getServiceReservations(String serviceType, int serviceId) async {
+    try {
+      final response = await dio.get(
+        '$baseUrl/api/reservations/$serviceType/$serviceId/'
+      );
+      return response.data;
+    } catch (e) {
+      print('Error fetching service reservations: $e');
+      rethrow;
+    }
   }
   
   // ================== USER PROFILE ==================
@@ -785,82 +792,444 @@ class ApiService {
   // ================== REVIEWS ==================
   
   // Get reviews for a service
-  Future<List<Review>> getServiceReviews(int serviceId) async {
-    final response = await getList('/api/reviews/?service=$serviceId');
-    return response.map<Review>((json) => Review.fromJson(json)).toList();
+  Future<List<Review>> getServiceReviews(String serviceType, int serviceId) async {
+    try {
+      final Map<String, dynamic> queryParams = {};
+      
+      // Add only the specific service type parameter and ensure it's the only one
+      switch (serviceType) {
+        case 'hammam':
+          queryParams['hammam_service'] = serviceId;
+          queryParams['service_type'] = 'hammam';
+          break;
+        case 'gym':
+          queryParams['gym_service'] = serviceId;
+          queryParams['service_type'] = 'gym';
+          break;
+        case 'makeup':
+          queryParams['makeup_service'] = serviceId;
+          queryParams['service_type'] = 'makeup';
+          break;
+        case 'henna':
+          queryParams['henna_service'] = serviceId;
+          queryParams['service_type'] = 'henna';
+          break;
+        case 'accessory':
+          queryParams['accessory_service'] = serviceId;
+          queryParams['service_type'] = 'accessory';
+          break;
+        case 'melhfa':
+          queryParams['melhfa_service'] = serviceId;
+          queryParams['service_type'] = 'melhfa';
+          break;
+      }
+
+      print('Fetching reviews with params: $queryParams'); // Debug print
+
+      final response = await dio.get(
+        '$baseUrl/api/reviews/',
+        queryParameters: queryParams,
+      );
+      
+      if (response.data is List) {
+        final reviews = (response.data as List)
+            .map((json) => Review.fromJson(json))
+            .toList();
+            
+        // Additional filtering to ensure we only get reviews for this specific service
+        return reviews.where((review) {
+          switch (serviceType) {
+            case 'hammam':
+              return review.hammamServiceId == serviceId;
+            case 'gym':
+              return review.gymServiceId == serviceId;
+            case 'makeup':
+              return review.makeupServiceId == serviceId;
+            case 'henna':
+              return review.hennaServiceId == serviceId;
+            case 'accessory':
+              return review.accessoryServiceId == serviceId;
+            case 'melhfa':
+              return review.melhfaServiceId == serviceId;
+            default:
+              return false;
+          }
+        }).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching service reviews: $e');
+      rethrow;
+    }
   }
-  
-  // Add a review
-  Future<Review> addReview(int serviceId, int rating, {String? comment}) async {
-    final response = await post('/api/reviews/', {
-      'service': serviceId,
-      'rating': rating,
-      'comment': comment ?? '',
-    });
-    
-    return Review.fromJson(response);
+
+  // Get user's reviews
+  Future<List<Review>> getUserReviews() async {
+    try {
+      final response = await dio.get('$baseUrl/api/reviews/my_reviews/');
+      
+      if (response.data is List) {
+        return (response.data as List)
+            .map((json) => Review.fromJson(json))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching user reviews: $e');
+      rethrow;
+    }
   }
-  
+
+  // Get provider's reviews
+  Future<List<Review>> getProviderReviews() async {
+    try {
+      final response = await dio.get('$baseUrl/api/reviews/provider_reviews/');
+      
+      if (response.data is List) {
+        return (response.data as List)
+            .map((json) => Review.fromJson(json))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching provider reviews: $e');
+      rethrow;
+    }
+  }
+
+  // Create a review
+  Future<Review> createReview({
+    required String serviceType,
+    required int rating,
+    required String comment,
+    int? hammamServiceId,
+    int? gymServiceId,
+    int? makeupServiceId,
+    int? hennaServiceId,
+    int? accessoryServiceId,
+    int? melhfaServiceId,
+  }) async {
+    try {
+      final data = {
+        'service_type': serviceType,
+        'rating': rating,
+        'comment': comment,
+      };
+
+      // Add the appropriate service ID based on service type
+      switch (serviceType) {
+        case 'hammam':
+          if (hammamServiceId != null) data['hammam_service'] = hammamServiceId;
+          break;
+        case 'gym':
+          if (gymServiceId != null) data['gym_service'] = gymServiceId;
+          break;
+        case 'makeup':
+          if (makeupServiceId != null) data['makeup_service'] = makeupServiceId;
+          break;
+        case 'henna':
+          if (hennaServiceId != null) data['henna_service'] = hennaServiceId;
+          break;
+        case 'accessory':
+          if (accessoryServiceId != null) data['accessory_service'] = accessoryServiceId;
+          break;
+        case 'melhfa':
+          if (melhfaServiceId != null) data['melhfa_service'] = melhfaServiceId;
+          break;
+      }
+
+      print('Creating review with data: $data'); // Debug print
+
+      final response = await dio.post(
+        '$baseUrl/api/reviews/',
+        data: data,
+        options: Options(
+          validateStatus: (status) {
+            return status! < 500;
+          },
+        ),
+      );
+
+      if (response.statusCode == 400) {
+        print('Review creation failed with response: ${response.data}'); // Debug print
+        if (response.data is Map) {
+          final errorData = response.data as Map;
+          if (errorData['non_field_errors'] != null) {
+            throw Exception(errorData['non_field_errors'][0]);
+          } else if (errorData['detail'] != null) {
+            throw Exception(errorData['detail']);
+          }
+        }
+        throw Exception('Failed to create review');
+      }
+
+      return Review.fromJson(response.data);
+    } catch (e) {
+      print('Error creating review: $e');
+      rethrow;
+    }
+  }
+
+  // Update a review
+  Future<Review> updateReview({
+    required int reviewId,
+    required int rating,
+    required String comment,
+  }) async {
+    try {
+      final response = await dio.patch(
+        '$baseUrl/api/reviews/$reviewId/',
+        data: {
+          'rating': rating,
+          'comment': comment,
+        },
+      );
+
+      return Review.fromJson(response.data);
+    } catch (e) {
+      print('Error updating review: $e');
+      rethrow;
+    }
+  }
+
+  // Delete a review
+  Future<void> deleteReview(int reviewId) async {
+    try {
+      await dio.delete('$baseUrl/api/reviews/$reviewId/');
+    } catch (e) {
+      print('Error deleting review: $e');
+      rethrow;
+    }
+  }
+
+  // Like/Unlike a review
+  Future<void> toggleReviewLike(int reviewId) async {
+    try {
+      await dio.post('$baseUrl/api/reviews/$reviewId/like/');
+    } catch (e) {
+      print('Error toggling review like: $e');
+      rethrow;
+    }
+  }
+
   // ================== COMMANDS ==================
   
   // Create a new command
-  Future<Map<String, dynamic>> createCommand(Map<String, dynamic> commandData) async {
-    // Create a copy of commandData to avoid modifying the original
-    final Map<String, dynamic> data = Map<String, dynamic>.from(commandData);
-    
+  Future<dynamic> createCommand(Map<String, dynamic> data) async {
     try {
       final user = await getCurrentUser();
-      
-      // Add user_id if user is logged in
-      if (user != null && user['id'] != null) {
-        data['user_id'] = user['id'];
+      if (user == null || user['id'] == null) {
+        throw Exception('User not logged in');
       }
-      // Don't explicitly set user_id to null, just let it be absent from the request
-      // The backend should handle missing user_id appropriately
+
+      // Validate service ID first
+      final serviceId = data['service_id'];
+      if (serviceId == null) {
+        throw Exception('Service ID is required');
+      }
+
+      // Get the service based on service type
+      dynamic service;
+      List<dynamic> services = [];
       
-      final response = await post('/api/commands/', data);
-      return response;
-    } catch (e) {
-      // Return a consistent error structure instead of throwing
-      return {
-        'error': true,
-        'message': e.toString(),
+      // Try to find the service in all possible service types
+      try {
+        services = await getMelhfaTypes();
+        print('Got melhfa services: ${services.length}');
+        print('Melhfa services data: $services');
+      } catch (e) {
+        print('Error getting melhfa services: $e');
+      }
+      
+      if (services.isEmpty) {
+        try {
+          services = await getHennaOptions();
+          print('Got henna services: ${services.length}');
+          print('Henna services data: $services');
+        } catch (e) {
+          print('Error getting henna services: $e');
+        }
+      }
+      
+      if (services.isEmpty) {
+        try {
+          services = await getAccessories();
+          print('Got accessory services: ${services.length}');
+          print('Accessory services data: $services');
+        } catch (e) {
+          print('Error getting accessory services: $e');
+        }
+      }
+
+      // Find the service and determine its type
+      for (var s in services) {
+        print('Service: $s');
+        if (s['id'].toString() == serviceId.toString()) {
+          service = s;
+          // Determine the service type based on the service data
+          if (s['type'] != null) {
+            data['service_type'] = 'melhfa';
+          } else if (s['category'] != null) {
+            data['service_type'] = 'accessory';
+          } else {
+            data['service_type'] = 'henna';
+          }
+          print('Service ID $serviceId is valid!');
+          break;
+        }
+      }
+
+      if (service == null) {
+        throw Exception('Service not found');
+      }
+
+      // Required fields according to the Command model
+      final commandData = {
+        'service_type': data['service_type'],
+        'date_debut': data['date_debut'],
+        'date_fin': data['date_fin'],
+        'statut': data['statut'] ?? 'pending',
+        'montant_total': data['montant_total'],
+        'commentaire': data['commentaire'] ?? '',
+        'client': user['id'],
+        // Set the appropriate service field based on service_type
+        if (data['service_type'] == 'henna') 'henna_service': serviceId,
+        if (data['service_type'] == 'accessory') 'accessory_service': serviceId,
+        if (data['service_type'] == 'melhfa') 'melhfa_service': serviceId,
       };
+
+      print('Sending command data: $commandData'); // Debug print
+
+      // Convert the data to FormData
+      final formData = FormData.fromMap(commandData);
+
+      final response = await dio.post(
+        '$baseUrl/api/commands/',
+        data: formData,
+        options: Options(
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          validateStatus: (status) {
+            return status! < 500;
+          },
+        ),
+      );
+
+      if (response.statusCode == 400) {
+        // Handle validation errors
+        if (response.data is Map) {
+          final errors = response.data as Map;
+          final errorMessage = errors.values.join(', ');
+          throw Exception(errorMessage);
+        }
+        throw Exception('Invalid data provided');
+      }
+
+      return response.data;
+    } catch (e) {
+      print('Error creating command: $e');
+      rethrow;
     }
   }
   
   // Get user commands
   Future<List<dynamic>> getUserCommands() async {
-    final user = await getCurrentUser();
-    if (user == null) {
-      throw Exception('User not logged in');
-    }
-    
-    final userId = user['id'];
-    if (userId == null) {
-      throw Exception('User ID not found');
-    }
-    
-    // Make sure we explicitly filter by the current user's ID
-    print('Fetching commands for user ID: $userId');
     try {
-      final response = await getList('/api/commands/?user=$userId');
+      final user = await getCurrentUser();
+      if (user == null || user['id'] == null) {
+        throw Exception('User not logged in');
+      }
+
+      final response = await dio.get(
+        '$baseUrl/api/commands/',
+        queryParameters: {'user': user['id']}
+      );
+
+      print('Raw command response: ${response.data}'); // Debug print
+
+      if (response.data == null) {
+        return [];
+      }
+
+      // Handle different response formats
+      List<dynamic> commands = [];
       
-      // Filter to ensure we only have this user's commands
-      final filteredCommands = response.where((command) {
-        // Command might have user_id or user.id depending on API format
-        final commandUserId = command['user_id'] ?? 
-                           (command['user'] is Map ? command['user']['id'] : command['user']);
-        
-        // Convert both to string for safer comparison
-        return commandUserId?.toString() == userId.toString();
+      if (response.data is List) {
+        commands = List<dynamic>.from(response.data);
+      } else if (response.data is Map) {
+        // If it's a single command
+        commands = [response.data];
+      } else {
+        print('Unexpected response format: ${response.data.runtimeType}');
+        return [];
+      }
+
+      // Process each command to ensure it's a proper map
+      return commands.map((command) {
+        try {
+          if (command is Map) {
+            // Extract service details
+            Map<String, dynamic> serviceDetails = {};
+            if (command['henna_service'] != null) {
+              serviceDetails = command['henna_service'] is Map 
+                ? Map<String, dynamic>.from(command['henna_service'])
+                : {'id': command['henna_service']};
+            } else if (command['melhfa_service'] != null) {
+              serviceDetails = command['melhfa_service'] is Map 
+                ? Map<String, dynamic>.from(command['melhfa_service'])
+                : {'id': command['melhfa_service']};
+            } else if (command['accessory_service'] != null) {
+              serviceDetails = command['accessory_service'] is Map 
+                ? Map<String, dynamic>.from(command['accessory_service'])
+                : {'id': command['accessory_service']};
+            }
+
+            // Create a properly structured command map
+            return {
+              'id': command['id'] ?? 0,
+              'service_type': command['service_type'] ?? 'unknown',
+              'status': command['status'] ?? command['statut'] ?? 'pending',
+              'created_at': command['created_at'] ?? DateTime.now().toIso8601String(),
+              'montant_total': command['montant_total'] ?? 0,
+              'service_details': serviceDetails,
+            };
+          } else if (command is int) {
+            // If it's just an ID, create a basic map
+            return {
+              'id': command,
+              'service_type': 'unknown',
+              'status': 'pending',
+              'created_at': DateTime.now().toIso8601String(),
+              'montant_total': 0,
+              'service_details': {'id': command},
+            };
+          } else {
+            print('Unexpected command format: ${command.runtimeType}');
+            return {
+              'id': 0,
+              'service_type': 'unknown',
+              'status': 'pending',
+              'created_at': DateTime.now().toIso8601String(),
+              'montant_total': 0,
+              'service_details': {'id': 0},
+            };
+          }
+        } catch (e) {
+          print('Error processing command: $e');
+          return {
+            'id': 0,
+            'service_type': 'unknown',
+            'status': 'pending',
+            'created_at': DateTime.now().toIso8601String(),
+            'montant_total': 0,
+            'service_details': {'id': 0},
+          };
+        }
       }).toList();
-      
-      print('Received ${response.length} commands, filtered to ${filteredCommands.length} for user $userId');
-      return filteredCommands;
     } catch (e) {
       print('Error fetching commands: $e');
-      throw Exception('Failed to fetch commands: $e');
+      return []; // Return empty list instead of throwing
     }
   }
 
@@ -878,78 +1247,152 @@ class ApiService {
     }
   }
 
-  // Get service details by ID - useful for getting names and images
-  Future<Map<String, dynamic>?> getServiceDetails(int serviceId) async {
+  // Mark notification as read
+  Future<void> markNotificationAsRead(int notificationId) async {
     try {
-      print('Fetching details for service ID: $serviceId');
-      final response = await get('/api/services/$serviceId/');
-      print('Service details response: $response');
-      return response;
+      await dio.post('$baseUrl/api/notifications/$notificationId/mark_as_read/');
     } catch (e) {
-      print('Error fetching service details: $e');
-      // Try alternative service endpoints if the main one fails
-      try {
-        // Try specific service types endpoints
-        Map<String, dynamic>? serviceDetails = await _tryDifferentServiceEndpoints(serviceId);
-        if (serviceDetails != null) {
-          return serviceDetails;
-        }
-        print('Failed to find service details in any endpoint');
-        return null;
-      } catch (finalError) {
-        print('Final error while fetching service details: $finalError');
-        return null;
-      }
+      print('Error marking notification as read: $e');
+      rethrow;
     }
   }
-  
-  // Helper method to try different service endpoints
-  Future<Map<String, dynamic>?> _tryDifferentServiceEndpoints(int serviceId) async {
-    // Try gyms
+
+  // Get service details
+  Future<dynamic> getServiceDetails(String serviceType, int serviceId) async {
     try {
-      final gyms = await getGyms();
-      for (var gym in gyms) {
-        final services = await getGymServices(gym['id']);
-        for (var service in services) {
-          if (service['id'] == serviceId) {
-            print('Found service in gym services: $service');
-            return service;
-          }
-        }
+      String endpoint;
+      switch (serviceType) {
+        case 'hammam':
+          endpoint = '/api/hammams/services/$serviceId/';
+          break;
+        case 'gym':
+          endpoint = '/api/gyms/services/$serviceId/';
+          break;
+        case 'henna':
+          endpoint = '/api/henna/$serviceId/';
+          break;
+        default:
+          throw Exception('Invalid service type');
       }
+      final response = await dio.get('$baseUrl$endpoint');
+      return response.data;
     } catch (e) {
-      print('Error searching in gym services: $e');
+      print('Error fetching service details: $e');
+      rethrow;
     }
-    
-    // Try hammams
+  }
+
+  // Send notification for order status change
+  Future<void> sendOrderNotification(int orderId, String status) async {
     try {
-      final hammams = await getHammams();
-      for (var hammam in hammams) {
-        final services = await getHammamServices(hammam['id']);
-        for (var service in services) {
-          if (service['id'] == serviceId) {
-            print('Found service in hammam services: $service');
-            return service;
-          }
-        }
-      }
+      await post('/api/notifications/', {
+        'type': 'order',
+        'order_id': orderId,
+        'status': status,
+      });
     } catch (e) {
-      print('Error searching in hammam services: $e');
+      print('Error sending order notification: $e');
+      rethrow;
     }
-    
-    // Try henna
+  }
+
+  // Send notification for reservation status change
+  Future<void> sendReservationNotification(int reservationId, String status) async {
     try {
-      final hennaServices = await getHennaOptions();
-      for (var service in hennaServices) {
-        if (service['id'] == serviceId) {
-          print('Found service in henna services: $service');
-          return service;
-        }
-      }
+      await post('/api/notifications/', {
+        'type': 'reservation',
+        'reservation_id': reservationId,
+        'status': status,
+      });
     } catch (e) {
-      print('Error searching in henna services: $e');
+      print('Error sending reservation notification: $e');
+      rethrow;
     }
-    
-    return null;
+  }
+
+  // Update reservation status
+  Future<dynamic> updateReservationStatus(int reservationId, String status) async {
+    try {
+      final response = await dio.patch(
+        '$baseUrl/api/reservations/$reservationId/',
+        data: {'statut': status}
+      );
+      return response.data;
+    } catch (e) {
+      print('Error updating reservation status: $e');
+      rethrow;
+    }
+  }
+
+  // Upload payment proof for a reservation
+  Future<dynamic> uploadReservationPayment(int reservationId, String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'preuve_paiement': await MultipartFile.fromFile(filePath),
+      });
+
+      final response = await dio.patch(
+        '$baseUrl/api/reservations/$reservationId/upload-payment/',
+        data: formData,
+      );
+      return response.data;
+    } catch (e) {
+      print('Error uploading payment proof: $e');
+      rethrow;
+    }
+  }
+
+  // Cancel a reservation
+  Future<dynamic> cancelReservation(int reservationId) async {
+    try {
+      final response = await dio.patch(
+        '$baseUrl/api/reservations/$reservationId/cancel/',
+      );
+      return response.data;
+    } catch (e) {
+      print('Error canceling reservation: $e');
+      rethrow;
+    }
+  }
+
+  // Upload payment proof for a command
+  Future<dynamic> uploadCommandPayment(int commandId, String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'preuve_paiement': await MultipartFile.fromFile(filePath),
+      });
+
+      final response = await dio.patch(
+        '$baseUrl/api/commands/$commandId/upload-payment/',
+        data: formData,
+      );
+      return response.data;
+    } catch (e) {
+      print('Error uploading payment proof: $e');
+      rethrow;
+    }
+  }
+
+  // Cancel a command
+  Future<dynamic> cancelCommand(int commandId) async {
+    try {
+      final response = await dio.patch(
+        '$baseUrl/api/commands/$commandId/cancel/',
+      );
+      return response.data;
+    } catch (e) {
+      print('Error canceling command: $e');
+      rethrow;
+    }
+  }
+
+  // Delete notification
+  Future<void> deleteNotification(int notificationId) async {
+    try {
+      await dio.delete('$baseUrl/api/notifications/$notificationId/');
+    } catch (e) {
+      print('Error deleting notification: $e');
+      rethrow;
+    }
   }
 }

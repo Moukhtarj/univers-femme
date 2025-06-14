@@ -1,39 +1,57 @@
 class Reservation {
   final int id;
-  final int service;
-  final int user;
+  final int userId;
+  final int serviceId;
+  final String serviceName;
+  final String serviceType;
   final DateTime date;
-  final String statut;
+  final String status;
+  final String? notes;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   Reservation({
     required this.id,
-    required this.service,
-    required this.user,
+    required this.userId,
+    required this.serviceId,
+    required this.serviceName,
+    required this.serviceType,
     required this.date,
-    this.statut = 'pending',
+    required this.status,
+    this.notes,
     required this.createdAt,
+    required this.updatedAt,
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) {
     return Reservation(
       id: json['id'],
-      service: json['service'],
-      user: json['user'],
+      userId: json['user'],
+      serviceId: json['service']['id'],
+      serviceName: json['service']['name'],
+      serviceType: json['service']['type'],
       date: DateTime.parse(json['date']),
-      statut: json['statut'],
+      status: json['statut'],
+      notes: json['notes'],
       createdAt: DateTime.parse(json['created_at']),
+      updatedAt: DateTime.parse(json['updated_at']),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'service': service,
-      'user': user,
+      'user': userId,
+      'service': {
+        'id': serviceId,
+        'name': serviceName,
+        'type': serviceType,
+      },
       'date': date.toIso8601String(),
-      'statut': statut,
+      'statut': status,
+      'notes': notes,
       'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 } 

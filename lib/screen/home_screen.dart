@@ -8,7 +8,7 @@ import 'gym_screen.dart';
 import 'HammamScreen .dart';
 import 'HennaScreen.dart';
 import 'MlahfaScreen.dart';
-import 'NotificationsScreen.dart';
+import 'notifications_Screen.dart';
 import 'makeup_screen.dart';
 import 'welcome_screen.dart';
 import 'profile_screen.dart';
@@ -108,7 +108,10 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const NotificationsScreen(),
+                  builder: (context) => NotificationsScreen(
+                    selectedLanguage: widget.selectedLanguage,
+                    translations: widget.translations,
+                  ),
                 ),
               );
             },

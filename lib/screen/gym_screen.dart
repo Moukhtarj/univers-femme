@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../services/location_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:location/location.dart' show LocationData;
 import '../services/api_service.dart';
-import 'reservation_screen.dart';
+import 'reservations_screen.dart';
+import '../widgets/review_section.dart';
 
 class GymScreen extends StatefulWidget {
   final String selectedLanguage;
@@ -20,14 +24,53 @@ class GymScreen extends StatefulWidget {
 
 class _GymScreenState extends State<GymScreen> {
   final ApiService _apiService = ApiService();
+  final LocationService _locationService = LocationService();
   List<dynamic> _gyms = [];
   bool _isLoading = true;
   String? _error;
+  LocationData? _currentLocation;
 
   @override
   void initState() {
     super.initState();
     _loadGyms();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      final location = await _locationService.getCurrentLocation();
+      if (location == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.selectedLanguage == 'Arabic'
+                    ? 'يرجى تفعيل خدمة الموقع لعرض المسافات'
+                    : 'Please enable location services to show distances',
+              ),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+      setState(() {
+        _currentLocation = location;
+      });
+    } catch (e) {
+      print('Error getting location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.selectedLanguage == 'Arabic'
+                  ? 'حدث خطأ في الحصول على الموقع'
+                  : 'Error getting location',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   String _translate(String key) {
@@ -54,6 +97,60 @@ class _GymScreenState extends State<GymScreen> {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  String _calculateDistance(double? lat, double? lng) {
+    if (_currentLocation == null || lat == null || lng == null) {
+      return widget.selectedLanguage == 'Arabic' ? 'المسافة غير متوفرة' : 'Distance unavailable';
+    }
+
+    try {
+      double distanceInMeters = _locationService.calculateDistance(
+        _currentLocation!.latitude!,
+        _currentLocation!.longitude!,
+        lat,
+        lng,
+      );
+
+      return _locationService.formatDistance(distanceInMeters);
+    } catch (e) {
+      print('Error calculating distance: $e');
+      return widget.selectedLanguage == 'Arabic' ? 'المسافة غير متوفرة' : 'Distance unavailable';
+    }
+  }
+
+  Future<void> _openMaps(double lat, double lng, String label) async {
+    try {
+      final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.selectedLanguage == 'Arabic'
+                    ? 'لا يمكن فتح الخريطة'
+                    : 'Could not open maps',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error opening maps: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.selectedLanguage == 'Arabic'
+                  ? 'حدث خطأ في فتح الخريطة'
+                  : 'Error opening maps',
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -134,22 +231,16 @@ class _GymScreenState extends State<GymScreen> {
                           final gym = _gyms[index];
                           return _buildGymCard(
                             context,
-                            gym['image']?.toString() ??
-                                'assets/images/gim2.jpeg',
-                            double.tryParse(
-                                    gym['rating']?.toString() ?? '4.5') ??
-                                4.5,
-                            gym['name']?.toString() ?? 'Gym Name',
-                            gym['location']?.toString() ?? 'Nouakchott',
-                            '${gym['daily_price']?.toString() ?? '80'} MRU',
-                            '${gym['monthly_price']?.toString() ?? '1500'} MRU',
-                            (gym['amenities'] as List?)
-                                    ?.map((e) => e.toString())
-                                    .toList() ??
-                                ['24/7', 'Equipment'],
-                            gym['id'] != null
-                                ? int.tryParse(gym['id'].toString()) ?? 1
-                                : 1,
+                            gym['image']?.toString() ?? 'assets/images/gym_nil.jpg',
+                            gym['name']?.toString() ?? 'Gym',
+                            gym['location']?.toString() ?? _translate('main_street_nouakchott'),
+                            (gym['rating'] != null) ? double.tryParse(gym['rating'].toString()) ?? 4.5 : 4.5,
+                            gym['daily_price']?.toString() ?? '0.0',
+                            gym['monthly_price']?.toString() ?? '0.0',
+                            gym['amenities']?.toString() ?? '',
+                            gym['id'] != null ? int.tryParse(gym['id'].toString()) ?? 1 : 1,
+                            double.tryParse(gym['latitude']?.toString() ?? ''),
+                            double.tryParse(gym['longitude']?.toString() ?? ''),
                           )
                               .animate()
                               .fadeIn(duration: 300.ms)
@@ -179,16 +270,16 @@ class _GymScreenState extends State<GymScreen> {
   Widget _buildGymCard(
     BuildContext context,
     String imagePath,
-    double rating,
     String name,
     String location,
+    double rating,
     String dailyPrice,
     String monthlyPrice,
-    List<String> amenities,
+    String amenities,
     int gymId,
+    double? latitude,
+    double? longitude,
   ) {
-    bool isNetworkImage = imagePath.startsWith('http');
-
     return Material(
       borderRadius: BorderRadius.circular(16),
       elevation: 4,
@@ -207,222 +298,212 @@ class _GymScreenState extends State<GymScreen> {
                 location: location,
                 dailyPrice: dailyPrice,
                 monthlyPrice: monthlyPrice,
-                amenities: amenities,
+                amenities: amenities.split(','),
                 selectedLanguage: widget.selectedLanguage,
                 translations: widget.translations,
               ),
             ),
           );
         },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Gym image
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      image: isNetworkImage
-                          ? DecorationImage(
-                              image: NetworkImage(imagePath),
-                              fit: BoxFit.cover,
-                              onError: (exception, stackTrace) => Container(),
-                            )
-                          : DecorationImage(
-                              image: AssetImage(imagePath),
-                              fit: BoxFit.cover,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Gym details
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            _buildRatingBadge(rating),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.location_on,
-                                size: 16, color: Colors.pink[300]),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                location,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          children: amenities
-                              .take(3)
-                              .map((amenity) => Chip(
-                                    label: Text(
-                                      amenity,
-                                      style: const TextStyle(fontSize: 10),
-                                    ),
-                                    backgroundColor: Colors.grey[100],
-                                    padding: EdgeInsets.zero,
-                                    labelPadding: const EdgeInsets.symmetric(
-                                        horizontal: 6),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ))
-                              .toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
-              const SizedBox(height: 16),
-              // Prices and visit button
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.selectedLanguage == 'Arabic'
-                              ? 'سعر اليوم:'
-                              : 'Day Pass:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+              child: imagePath.startsWith('http')
+                  ? Image.network(
+                      imagePath,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Icon(Icons.fitness_center, size: 60, color: Colors.grey),
                         ),
-                        Text(
-                          dailyPrice,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFF06292),
-                          ),
+                      ),
+                    )
+                  : Image.asset(
+                      imagePath,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Icon(Icons.fitness_center, size: 60, color: Colors.grey),
                         ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.selectedLanguage == 'Arabic'
-                              ? 'الاشتراك الشهري:'
-                              : 'Monthly:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Text(
-                          monthlyPrice,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFF06292),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF06292),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => GymDetailsScreen(
-                            gymId: gymId,
-                            imagePath: imagePath,
-                            rating: rating,
-                            name: name,
-                            location: location,
-                            dailyPrice: dailyPrice,
-                            monthlyPrice: monthlyPrice,
-                            amenities: amenities,
-                            selectedLanguage: widget.selectedLanguage,
-                            translations: widget.translations,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF880E4F),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8BBD0),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.white, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating.toString(),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, color: Color(0xFFF06292), size: 16),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.directions_walk, color: Color(0xFFF06292), size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        _calculateDistance(latitude, longitude),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (latitude != null && longitude != null)
+                        TextButton.icon(
+                          onPressed: () => _openMaps(latitude, longitude, name),
+                          icon: const Icon(Icons.map, color: Color(0xFFF06292), size: 16),
+                          label: Text(
+                            widget.selectedLanguage == 'Arabic' ? 'عرض على الخريطة' : 'View on Map',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFFF06292),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.selectedLanguage == 'Arabic' ? 'السعر اليومي' : 'Daily Price',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              dailyPrice,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF880E4F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.selectedLanguage == 'Arabic' ? 'السعر الشهري' : 'Monthly Price',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              monthlyPrice,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF880E4F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: amenities.split(',').map((amenity) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8BBD0).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          amenity,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF880E4F),
                           ),
                         ),
                       );
-                    },
-                    child: Text(
-                      widget.selectedLanguage == 'Arabic' ? 'زيارة' : 'Visit',
-                      style: const TextStyle(
-                        color: Colors.white,
-                      ),
-                    ),
+                    }).toList(),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRatingBadge(double rating) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.amber,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.star,
-            size: 14,
-            color: Colors.white,
-          ),
-          const SizedBox(width: 2),
-          Text(
-            rating.toString(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -515,10 +596,7 @@ class GymSearchDelegate extends SearchDelegate<String> {
                   dailyPrice: '${gym['daily_price']?.toString() ?? '80'} MRU',
                   monthlyPrice:
                       '${gym['monthly_price']?.toString() ?? '1500'} MRU',
-                  amenities: (gym['amenities'] as List?)
-                          ?.map((e) => e.toString())
-                          .toList() ??
-                      ['24/7', 'Equipment'],
+                  amenities: gym['amenities']?.split(',') ?? ['24/7', 'Equipment'],
                   selectedLanguage: selectedLanguage,
                   translations: translations,
                 ),
@@ -800,7 +878,26 @@ class _GymDetailsScreenState extends State<GymDetailsScreen> with SingleTickerPr
                           .toList(),
                     ),
                     const SizedBox(height: 16),
-                                        Container(                      decoration: BoxDecoration(                        color: Colors.grey[200],                        borderRadius: BorderRadius.circular(8),                      ),                      child: TabBar(                        controller: _tabController,                        labelColor: Colors.pink[800],                        unselectedLabelColor: Colors.grey[600],                        indicator: BoxDecoration(                          color: Colors.white,                          borderRadius: BorderRadius.circular(8),                          boxShadow: [                            BoxShadow(                              color: Colors.grey.withOpacity(0.2),                              blurRadius: 4,                              offset: const Offset(0, 2),                            ),                          ],                        ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        labelColor: Colors.pink[800],
+                        unselectedLabelColor: Colors.grey[600],
+                        indicator: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
                         tabs: [
                           Tab(
                               text: widget.selectedLanguage == 'Arabic'
@@ -837,7 +934,11 @@ class _GymDetailsScreenState extends State<GymDetailsScreen> with SingleTickerPr
                     else if (_selectedTab == 1)
                       _buildScheduleTab()
                     else
-                      _buildReviewsTab(),
+                      ReviewSection(
+                        serviceType: 'gym',
+                        serviceId: widget.gymId,
+                        serviceName: widget.name,
+                      )
                   ],
                 ),
               ),
@@ -851,17 +952,11 @@ class _GymDetailsScreenState extends State<GymDetailsScreen> with SingleTickerPr
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ReservationScreen(
-                  productName:
-                      '${widget.name} - ${widget.selectedLanguage == 'Arabic' ? 'اشتراك' : 'Membership'}',
-                  serviceId: _gymServices.isNotEmpty
-                      ? (_gymServices[0]['id'] != null
-                          ? int.tryParse(_gymServices[0]['id'].toString()) ?? 1
-                          : 1)
-                      : 1,
+                builder: (context) => ReservationsScreen(
                   selectedLanguage: widget.selectedLanguage,
                   translations: widget.translations,
                   serviceType: 'gym',
+                  serviceId: _gymServices[0]['id'],
                 ),
               ),
             );
@@ -893,37 +988,120 @@ class _GymDetailsScreenState extends State<GymDetailsScreen> with SingleTickerPr
       itemCount: _gymServices.length,
       itemBuilder: (context, index) {
         final service = _gymServices[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            title: Text(service['name']?.toString() ?? 'Service'),
-            subtitle: Text(service['description']?.toString() ?? ''),
-            trailing: Text(
-              '${service['price']?.toString() ?? '0'} MRU',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.pink[800],
-              ),
-            ),
+        return _buildServiceCard(
+          context,
+          service['image']?.toString() ?? 'assets/images/gim2.jpeg',
+          service['name']?.toString() ?? 'Service',
+          service['phone']?.toString() ?? '',
+          service['id'] != null ? int.tryParse(service['id'].toString()) ?? 1 : 1,
+          '${service['price']?.toString() ?? '0'} MRU',
+          service,
+        );
+      },
+    );
+  }
+
+  Widget _buildServiceCard(BuildContext context, String imagePath, String serviceName, String phoneNumber, int serviceId, String price, Map<String, dynamic> service) {
+    bool isNetworkImage = imagePath.startsWith('http');
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ReservationScreen(
-                    productName: service['name']?.toString() ?? 'Service',
-                    serviceId: service['id'] != null
-                        ? int.tryParse(service['id'].toString()) ?? 1
-                        : 1,
+                  builder: (context) => GymDetailsScreen(
+                    gymId: serviceId,
+                    imagePath: imagePath,
+                    rating: double.tryParse(service['rating']?.toString() ?? '4.5') ?? 4.5,
+                    name: serviceName,
+                    location: service['location']?.toString() ?? 'Nouakchott',
+                    dailyPrice: price,
+                    monthlyPrice: service['monthly_price']?.toString() ?? '1500 MRU',
+                    amenities: service['amenities']?.split(',') ?? ['24/7', 'Equipment'],
                     selectedLanguage: widget.selectedLanguage,
                     translations: widget.translations,
-                    serviceType: 'gym',
                   ),
                 ),
               );
             },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFFFF9FB),
+                    Color(0xFFFFF0F5),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      image: isNetworkImage
+                          ? DecorationImage(
+                              image: NetworkImage(imagePath),
+                              fit: BoxFit.cover,
+                              onError: (exception, stackTrace) => Container(),
+                            )
+                          : DecorationImage(
+                              image: AssetImage(imagePath),
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          serviceName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          phoneNumber,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    price,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFF06292),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -969,81 +1147,6 @@ class _GymDetailsScreenState extends State<GymDetailsScreen> with SingleTickerPr
                   ),
                 ),
                 const Text('06:00 - 22:00'),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildReviewsTab() {
-    final reviews = [
-      {
-        'name': 'Mohammed',
-        'rating': 5,
-        'comment': widget.selectedLanguage == 'Arabic'
-            ? 'صالة ممتازة مع معدات حديثة'
-            : 'Excellent gym with modern equipment',
-        'date': '2023-09-15',
-      },
-      {
-        'name': 'Sara',
-        'rating': 4,
-        'comment': widget.selectedLanguage == 'Arabic'
-            ? 'المدربين محترفون ولكن ساعات العمل قصيرة جدًا'
-            : 'Professional trainers but somewhat limited hours',
-        'date': '2023-08-22',
-      },
-    ];
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: reviews.length,
-      itemBuilder: (context, index) {
-        final review = reviews[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      review['name'] as String,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Row(
-                      children: List.generate(
-                        5,
-                        (i) => Icon(
-                          i < (review['rating'] as int)
-                              ? Icons.star
-                              : Icons.star_border,
-                          color: Colors.amber,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(review['comment'] as String),
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat('yyyy-MM-dd')
-                      .format(DateTime.parse(review['date'] as String)),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
               ],
             ),
           ),

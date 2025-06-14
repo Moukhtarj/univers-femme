@@ -44,6 +44,19 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
+	
 	<true/>
+	
+	<!-- Add these keys for location permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to location to show distances to properties.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs access to location to show distances to properties.</string>
+	
+	<!-- Add Google Maps API key -->
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
+	<key>GoogleMapsApiKey</key>
+	<string>AIzaSyAkz1DacsVmmBnfQwMPk7BGubYxJm5hLM8</string>
 </dict>
 </plist>

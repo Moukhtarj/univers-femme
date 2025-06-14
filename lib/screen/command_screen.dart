@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'package:intl/intl.dart';
 
 class CommandScreen extends StatefulWidget {
   final String productName;
@@ -126,21 +127,32 @@ class _CommandScreenState extends State<CommandScreen> {
         _error = null;
       });
 
-      // Build command data with null safety
+      // Get a valid service ID
+      final validServiceId = await _apiService.getValidServiceId(widget.serviceId);
+      if (validServiceId == null) {
+        throw Exception(widget.selectedLanguage == 'Arabic'
+            ? 'لم يتم العثور على الخدمة المطلوبة'
+            : 'Requested service not found');
+      }
+
+      // Format current date for API
+      final now = DateTime.now();
+      final formattedDate = DateFormat('yyyy-MM-dd').format(now);
+
+      // Build command data with required fields
       final commandData = {
-        'product_name': widget.productName,
-        'service_id': widget.serviceId,
-        'client_name': _nameController.text,
-        'phone_number': _phoneController.text,
-        'address': _addressController.text,
-        'quantity': _quantity,
-        'price': _price,
-        'total_price': _totalPrice,
-        // Add default values for any potentially null fields
-        'status': 'pending',
+        'service_type': 'henna', // Use henna service type
+        'service_id': validServiceId, // Keep as integer
+        'date_debut': formattedDate, // Start date
+        'date_fin': formattedDate, // End date (same as start for single-day commands)
+        'montant_total': _totalPrice.toString(),
+        'commentaire': _addressController.text, // Use address as comment
+        'statut': 'pending', // Add status field
       };
 
-      // Send command data to API with error handling
+      print('Sending command data: $commandData'); // Debug print
+
+      // Send command data to API
       final response = await _apiService.createCommand(commandData);
       
       if (response == null) {

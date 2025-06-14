@@ -3,6 +3,7 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import 'command_screen.dart';
+import '../widgets/review_section.dart';
 
 class MelhfaScreen extends StatefulWidget {
   final String selectedLanguage;
@@ -563,6 +564,53 @@ class _MelhfaListScreenState extends State<MelhfaListScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildServiceCard(BuildContext context, String imagePath, String serviceName, String phoneNumber, int serviceId, String price) {
+    bool isNetworkImage = imagePath.startsWith('http');
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              // ... existing onTap code ...
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFFFF9FB),
+                    Color(0xFFFFF0F5),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Row(
+                children: [
+                  // ... existing service card content ...
+                ],
+              ),
+            ),
+          ),
+          // Add review section
+          ReviewSection(
+            serviceType: 'melhfa',
+            serviceId: serviceId,
+            serviceName: serviceName,
+          ),
+        ],
       ),
     );
   }
