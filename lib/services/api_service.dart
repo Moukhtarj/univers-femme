@@ -362,14 +362,35 @@ class ApiService {
   
   // Register user - sends OTP
   Future<Map<String, dynamic>> register(String firstName, String lastName, String phone, String password, {String? email, String? role}) async {
-    return await post('/api/register/', {
+    // Create the registration data map with all required fields
+    final Map<String, dynamic> registrationData = {
       'first_name': firstName,
       'last_name': lastName,
       'phone': phone,
       'password': password,
-      'email': email,
-      'role': role ?? 'utilisateur',
-    });
+    };
+
+    // Add optional fields only if they are provided
+    if (email != null && email.isNotEmpty) {
+      registrationData['email'] = email;
+    }
+    
+    if (role != null && role.isNotEmpty) {
+      registrationData['role'] = role;
+    } else {
+      registrationData['role'] = 'utilisateur'; // Default role if none provided
+    }
+
+    print('Sending registration data: $registrationData'); // Debug print
+
+    try {
+      final response = await post('/api/register/', registrationData);
+      print('Registration response: $response'); // Debug print
+      return response;
+    } catch (e) {
+      print('Registration error: $e'); // Debug print
+      rethrow;
+    }
   }
   
   // Verify OTP and complete registration
@@ -1062,17 +1083,18 @@ class ApiService {
       }
 
       // Find the service and determine its type
+      String? serviceType;
       for (var s in services) {
         print('Service: $s');
         if (s['id'].toString() == serviceId.toString()) {
           service = s;
           // Determine the service type based on the service data
           if (s['type'] != null) {
-            data['service_type'] = 'melhfa';
+            serviceType = 'melhfa';
           } else if (s['category'] != null) {
-            data['service_type'] = 'accessory';
+            serviceType = 'accessory';
           } else {
-            data['service_type'] = 'henna';
+            serviceType = 'henna';
           }
           print('Service ID $serviceId is valid!');
           break;
@@ -1083,19 +1105,25 @@ class ApiService {
         throw Exception('Service not found');
       }
 
-      // Required fields according to the Command model
+      if (serviceType == null) {
+        throw Exception('Could not determine service type');
+      }
+
+      // Format the date for the API
+      final now = DateTime.now();
+      final formattedDate = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+      // Required fields according to the CommandSerializer
       final commandData = {
-        'service_type': data['service_type'],
-        'date_debut': data['date_debut'],
-        'date_fin': data['date_fin'],
+        'service_type': serviceType,
+        'date_commande': formattedDate,
         'statut': data['statut'] ?? 'pending',
-        'montant_total': data['montant_total'],
+        'montant_total': data['montant_total'].toString(),
         'commentaire': data['commentaire'] ?? '',
-        'client': user['id'],
         // Set the appropriate service field based on service_type
-        if (data['service_type'] == 'henna') 'henna_service': serviceId,
-        if (data['service_type'] == 'accessory') 'accessory_service': serviceId,
-        if (data['service_type'] == 'melhfa') 'melhfa_service': serviceId,
+        if (serviceType == 'henna') 'henna_service': serviceId.toString(),
+        if (serviceType == 'accessory') 'accessory_service': serviceId.toString(),
+        if (serviceType == 'melhfa') 'melhfa_service': serviceId.toString(),
       };
 
       print('Sending command data: $commandData'); // Debug print
@@ -1120,6 +1148,9 @@ class ApiService {
         // Handle validation errors
         if (response.data is Map) {
           final errors = response.data as Map;
+          if (errors['detail'] != null) {
+            throw Exception(errors['detail']);
+          }
           final errorMessage = errors.values.join(', ');
           throw Exception(errorMessage);
         }

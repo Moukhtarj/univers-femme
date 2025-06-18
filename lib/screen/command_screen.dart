@@ -141,13 +141,12 @@ class _CommandScreenState extends State<CommandScreen> {
 
       // Build command data with required fields
       final commandData = {
-        'service_type': 'henna', // Use henna service type
-        'service_id': validServiceId, // Keep as integer
-        'date_debut': formattedDate, // Start date
-        'date_fin': formattedDate, // End date (same as start for single-day commands)
+        'service_id': validServiceId,
+        'date_debut': formattedDate,
+        'date_fin': formattedDate,
         'montant_total': _totalPrice.toString(),
-        'commentaire': _addressController.text, // Use address as comment
-        'statut': 'pending', // Add status field
+        'commentaire': _addressController.text,
+        'statut': 'pending',
       };
 
       print('Sending command data: $commandData'); // Debug print

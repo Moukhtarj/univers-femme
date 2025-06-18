@@ -6,6 +6,8 @@ import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdf/widgets.dart' as pw;
+import '../services/tflite_service.dart';
+import 'dart:io';
 
 class HistoryScreen extends StatefulWidget {
   final String selectedLanguage;
@@ -23,6 +25,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
+  final TFLiteService _tfliteService = TFLiteService();
   late TabController _tabController;
   List<dynamic> _reservations = [];
   List<dynamic> _commands = [];
@@ -1447,6 +1450,16 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
       
       if (image != null) {
+        // OCR validation before upload
+        final isValid = await _tfliteService.validatePaymentProof(File(image.path));
+        if (!isValid) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(_translate('Invalid payment proof. Please upload a valid receipt.'))),
+            );
+          }
+          return;
+        }
         setState(() => _isLoadingReservations = true);
         
         // Upload the payment proof
