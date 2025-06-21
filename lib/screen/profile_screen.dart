@@ -36,6 +36,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
   }
 
+  // Helper method to safely get translations
+  String _getTranslation(String key, String fallback) {
+    try {
+      return widget.translations[widget.selectedLanguage]?[key] ?? fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
@@ -75,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              widget.translations[widget.selectedLanguage]!['profileUpdated'] ?? 'Profile updated successfully',
+              _getTranslation('profileUpdated', 'Profile updated successfully'),
             ),
           ),
         );
@@ -92,7 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.translations[widget.selectedLanguage]!['profile'] ?? 'Profile',
+          _getTranslation('profile', 'Profile'),
           style: const TextStyle(color: Colors.white),
         ),
         backgroundColor: const Color.fromRGBO(255, 192, 203, 1),
@@ -128,12 +137,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 controller: _firstNameController,
                 enabled: _isEditing,
                 decoration: InputDecoration(
-                  labelText: widget.translations[widget.selectedLanguage]!['firstName'] ?? 'First Name',
+                  labelText: _getTranslation('firstName', 'First Name'),
                   border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return widget.translations[widget.selectedLanguage]!['requiredField'] ?? 'This field is required';
+                    return _getTranslation('requiredField', 'This field is required');
                   }
                   return null;
                 },
@@ -143,12 +152,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 controller: _lastNameController,
                 enabled: _isEditing,
                 decoration: InputDecoration(
-                  labelText: widget.translations[widget.selectedLanguage]!['lastName'] ?? 'Last Name',
+                  labelText: _getTranslation('lastName', 'Last Name'),
                   border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return widget.translations[widget.selectedLanguage]!['requiredField'] ?? 'This field is required';
+                    return _getTranslation('requiredField', 'This field is required');
                   }
                   return null;
                 },
@@ -158,13 +167,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 controller: _emailController,
                 enabled: _isEditing,
                 decoration: InputDecoration(
-                  labelText: widget.translations[widget.selectedLanguage]!['email'] ?? 'Email',
+                  labelText: _getTranslation('email', 'Email'),
                   border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value != null && value.isNotEmpty) {
                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                      return widget.translations[widget.selectedLanguage]!['invalidEmail'] ?? 'Invalid email format';
+                      return _getTranslation('invalidEmail', 'Invalid email format');
                     }
                   }
                   return null;
@@ -175,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 controller: _phoneController,
                 enabled: false, // Phone number cannot be edited
                 decoration: InputDecoration(
-                  labelText: widget.translations[widget.selectedLanguage]!['phone'] ?? 'Phone',
+                  labelText: _getTranslation('phone', 'Phone'),
                   border: const OutlineInputBorder(),
                 ),
               ),

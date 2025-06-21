@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'ChangePasswordScreen.dart';
 import 'home_screen.dart';
+import 'fournisseur_dashboard_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -199,20 +200,66 @@ class _LoginScreenState extends State<LoginScreen> {
                           await prefs.setString('token', response['access']);
                           await prefs.setString('user', jsonEncode(response));
                           
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Directionality(
-                                textDirection: widget.selectedLanguage == 'Arabic' 
-                                    ? TextDirection.rtl 
-                                    : TextDirection.ltr,
-                                child: ModernHomeScreen(
-                                  selectedLanguage: widget.selectedLanguage,
-                                  translations: widget.translations,
+                          // Get user profile to check role
+                          try {
+                            final userProfileResponse = await ApiService().get('api/users/profile/data/');
+                            final userRole = userProfileResponse['role'] ?? 'utilisateur';
+                            
+                            // Debug logging
+                            print('User profile response: $userProfileResponse');
+                            print('User role: $userRole');
+                            
+                            // Navigate based on user role (case-insensitive comparison)
+                            if (userRole.toString().toLowerCase() == 'fournisseur') {
+                              print('Navigating to FournisseurDashboardScreen');
+                              // Navigate to fournisseur dashboard
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => Directionality(
+                                    textDirection: widget.selectedLanguage == 'Arabic' 
+                                        ? TextDirection.rtl 
+                                        : TextDirection.ltr,
+                                    child: const FournisseurDashboardScreen(),
+                                  ),
+                                ),
+                              );
+                            } else {
+                              print('Navigating to ModernHomeScreen');
+                              // Navigate to home screen for utilisateur
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => Directionality(
+                                    textDirection: widget.selectedLanguage == 'Arabic' 
+                                        ? TextDirection.rtl 
+                                        : TextDirection.ltr,
+                                    child: ModernHomeScreen(
+                                      selectedLanguage: widget.selectedLanguage,
+                                      translations: widget.translations,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (profileError) {
+                            // If profile fetch fails, default to home screen
+                            print('Error fetching user profile: $profileError');
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => Directionality(
+                                  textDirection: widget.selectedLanguage == 'Arabic' 
+                                      ? TextDirection.rtl 
+                                      : TextDirection.ltr,
+                                  child: ModernHomeScreen(
+                                    selectedLanguage: widget.selectedLanguage,
+                                    translations: widget.translations,
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
+                            );
+                          }
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(e.toString())),
