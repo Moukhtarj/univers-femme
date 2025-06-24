@@ -73,7 +73,17 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     'language': 'اللغة',
     'home_page': 'الصفحة الرئيسية',
     'historique': 'السجل',
-
+    'otpSentTo': 'رمز التحقق للهاتف',
+    'resendOtp': 'إعادة الإرسال',
+    'resendIn': 'إعادة الإرسال في',
+    'verify': 'التحقق',
+    'enterOtp': 'أدخل رمز التحقق',
+    'verifyOtp': 'التحقق من رمز التحقق',
+    'invalidOtp': 'رمز التحقق غير صالح',
+    'verificationFailed': 'فشل التحقق',
+    'networkError': 'خطأ في الشبكة',
+    'otpResent': 'رمز التحقق معاد الإرسال',
+    'resendFailed': 'فشل إعادة الإرسال',
     },
     'English': {
       'appTitle': "🌸🎀 Girl's",
@@ -133,6 +143,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     'wishlist': 'Wishlist',
     'language': 'Language',
     'historique': 'History',
+    'otpSentTo': 'OTP sent to',
+    'resendOtp': 'Resend OTP',
+    'resendIn': 'Resend in',
+    'verify': 'Verify',
+    'enterOtp': 'Enter OTP',
+    'verifyOtp': 'Verify OTP',
+    'invalidOtp': 'Invalid OTP',
+    'verificationFailed': 'Verification failed',
+    'networkError': 'Network error',
+    'otpResent': 'OTP resent',
+    'resendFailed': 'Resend failed',
+    
     },
     'French': {
     'appTitle': "🌸🎀 Girl's",
@@ -191,8 +213,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     'wishlist': 'souhaits',
     'language': 'Langue',
     'historique': 'Historique',
-
-        
+    'otpSentTo': 'OTP envoyé à',
+    'resendOtp': 'Renvoyer OTP',
+    'resendIn': 'Renvoyer dans',
+    'verify': 'Vérifier',
+    'enterOtp': 'Entrer OTP',
+    'verifyOtp': 'Vérifier OTP',
+    'invalidOtp': 'OTP invalide',
+    'verificationFailed': 'Échec de la vérification',
+    'networkError': 'Erreur réseau',
+    'otpResent': 'OTP réenvoié',
+    'resendFailed': 'Échec de l\'envoi',
+   
     },
   };
 

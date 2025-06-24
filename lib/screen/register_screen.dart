@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'VerifyOtpScreen.dart';
 import 'home_screen.dart';
 import '../config.dart';
+import '../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String selectedLanguage;
@@ -27,6 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   
   final RegExp _emailRegex = RegExp(
@@ -46,43 +48,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
 
       try {
-        final registrationData = {
-          'first_name': _firstNameController.text,
-          'last_name': _lastNameController.text,
-          'phone': _phoneController.text, // Changed from phone_number to match backend
-          'email': _emailController.text,
-          'password': _passwordController.text,
-          'role': 'utilisateur', // Default role
-        };
-
-        final response = await http.post(
-          Uri.parse('${Config.apiUrl}/api/register/'), // Changed from /api/auth/register/
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(registrationData),
+        // Use the ApiService register method instead of direct http.post
+        final apiService = ApiService();
+        
+        final response = await apiService.register(
+          _firstNameController.text,
+          _lastNameController.text,
+          _phoneController.text,
+          _passwordController.text,
+          email: _emailController.text.isNotEmpty ? _emailController.text : null,
+          role: 'utilisateur', // Default role
         );
 
-        if (response.statusCode == 200) {
-          // OTP sent successfully, navigate to verify screen
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VerifyOtpScreen(
-                phoneNumber: _phoneController.text,
-                selectedLanguage: widget.selectedLanguage,
-                translations: widget.translations,
-                registrationData: registrationData,
-              ),
+        // OTP sent successfully, navigate to verify screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerifyOtpScreen(
+              phoneNumber: _phoneController.text,
+              selectedLanguage: widget.selectedLanguage,
+              translations: widget.translations,
+              registrationData: {
+                'first_name': _firstNameController.text,
+                'last_name': _lastNameController.text,
+                'phone': _phoneController.text,
+                'email': _emailController.text,
+                'password': _passwordController.text,
+                'role': 'utilisateur',
+              },
             ),
-          );
-        } else {
-          final error = jsonDecode(response.body);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error['error'] ?? 'Registration failed')),
-          );
-        }
+          ),
+        );
       } catch (e) {
+        print('Registration error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Network error: $e')),
+          SnackBar(
+            content: Text(
+              widget.selectedLanguage == 'Arabic'
+                  ? 'خطأ في التسجيل: $e'
+                  : widget.selectedLanguage == 'French'
+                      ? 'Erreur d\'inscription: $e'
+                      : 'Registration error: $e',
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       } finally {
         setState(() {
@@ -167,6 +176,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
             : keyboardType == TextInputType.emailAddress
                 ? const Icon(Icons.email, color: Colors.white70)
                 : const Icon(Icons.person, color: Colors.white70),
+        suffixIcon: obscureText 
+            ? IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.white70,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              )
+            : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Colors.white),
@@ -244,7 +266,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _buildTextFormField(
                   controller: _passwordController,
                   labelText: widget.translations[widget.selectedLanguage]!['password'] ?? 'Password',
-                  obscureText: true,
+                  obscureText: _obscurePassword,
                   validator: _validatePassword,
                 ),
                 const SizedBox(height: 20),

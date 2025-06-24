@@ -483,7 +483,14 @@ class ApiService {
       registrationData['role'] = 'utilisateur'; // Default role if none provided
     }
 
+    print('=== REGISTRATION DEBUG ===');
     print('Sending registration data: $registrationData'); // Debug print
+    print('First name: $firstName');
+    print('Last name: $lastName');
+    print('Phone: $phone');
+    print('Email: $email');
+    print('Role: ${registrationData['role']}');
+    print('========================');
 
     try {
       final response = await post('/api/register/', registrationData);
@@ -491,6 +498,10 @@ class ApiService {
       return response;
     } catch (e) {
       print('Registration error: $e'); // Debug print
+      print('Error type: ${e.runtimeType}');
+      if (e.toString().contains('DOCTYPE')) {
+        print('Received HTML response instead of JSON - possible server error');
+      }
       rethrow;
     }
   }
