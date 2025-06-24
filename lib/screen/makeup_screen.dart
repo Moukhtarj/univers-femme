@@ -135,7 +135,7 @@ class _MakeupScreenState extends State<MakeupScreen> {
                       final service = _makeupServices[index];
                       return _buildServiceCard(
                         context,
-                        service['image'] ?? 'assets/images/makeup1.jpg',
+                        service['image_url'] ?? 'assets/images/makeup1.jpg',
                         service['name'] ?? 'Makeup Artist',
                         service['phone'] ?? '+222 12345678',
                         service['id'] ?? 1,
@@ -158,7 +158,7 @@ class _MakeupScreenState extends State<MakeupScreen> {
                     serviceId: _makeupServices.first['id'] ?? 1,
                     selectedLanguage: widget.selectedLanguage,
                     translations: widget.translations,
-                    productImage: _makeupServices.first['image'] ?? 'assets/images/makeup1.jpg',
+                    productImage: _makeupServices.first['image_url'] ?? 'assets/images/makeup1.jpg',
                     productPrice: double.tryParse(_makeupServices.first['price']?.toString() ?? '0.0') ?? 0.0,
                   ),
                 ),

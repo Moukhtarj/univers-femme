@@ -269,7 +269,7 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
                   item['name'] ?? 'Accessory',
                   item['arabic_name'] ?? item['name'] ?? 'إكسسوار',
                   item['price']?.toString() ?? '0.00',
-                  item['image'] ?? 'assets/images/placeholder.jpg',
+                  item['image_url'] ?? 'assets/images/placeholder.jpg',
                   item['id'] ?? 1,
                   false, // isNew
                 );
@@ -297,7 +297,7 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
                   item['name'] ?? 'Makeup',
                   item['arabic_name'] ?? item['name'] ?? 'مكياج',
                   item['price']?.toString() ?? '0.00',
-                  item['image'] ?? 'assets/images/placeholder.jpg',
+                  item['image_url'] ?? 'assets/images/placeholder.jpg',
                   item['id'] ?? 1,
                   false, // isNew
                 );

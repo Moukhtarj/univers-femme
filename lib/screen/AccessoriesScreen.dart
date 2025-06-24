@@ -256,7 +256,7 @@ class _AccessoriesScreenState extends State<AccessoriesScreen> {
         : product['description']?.toString() ?? '';
     
     final price = product['price']?.toString() ?? '0.00';
-    final imagePath = product['image']?.toString() ?? 'assets/images/placeholder.jpg';
+    final imagePath = product['image_url']?.toString() ?? 'assets/images/placeholder.jpg';
     final isNew = product['is_new'] == true;
     final isNetworkImage = imagePath.startsWith('http');
     
@@ -389,7 +389,7 @@ class _AccessoriesScreenState extends State<AccessoriesScreen> {
         : product['description']?.toString() ?? '';
     
     final price = product['price']?.toString() ?? '0.00';
-    final imagePath = product['image']?.toString() ?? 'assets/images/placeholder.jpg';
+    final imagePath = product['image_url']?.toString() ?? 'assets/images/placeholder.jpg';
     final productId = product['id'] != null ? int.tryParse(product['id'].toString()) ?? 1 : 1;
     final isNetworkImage = imagePath.startsWith('http');
     
@@ -708,7 +708,7 @@ class AccessoriesSearchDelegate extends SearchDelegate<String> {
             : product['name']?.toString() ?? 'Product';
         
         final price = product['price']?.toString() ?? '0.00';
-        final imagePath = product['image']?.toString() ?? 'assets/images/placeholder.jpg';
+        final imagePath = product['image_url']?.toString() ?? 'assets/images/placeholder.jpg';
         final isNetworkImage = imagePath.startsWith('http');
         
         return ListTile(

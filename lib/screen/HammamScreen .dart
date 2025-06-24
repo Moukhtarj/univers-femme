@@ -215,7 +215,7 @@ class _HammamListScreenState extends State<HammamListScreen> {
                   const SizedBox(height: 15),
                   ..._hammams.map((hammam) => _buildHammamCard(
                     context,
-                    hammam['image']?.toString() ?? 'assets/images/hammam_nil.jpg',
+                    hammam['image_url']?.toString() ?? 'assets/images/hammam_nil.jpg',
                     hammam['name']?.toString() ?? 'Hammam',
                     hammam['location']?.toString() ?? _getTranslatedAddress('main_street_nouakchott'),
                     (hammam['rating'] != null) ? double.tryParse(hammam['rating'].toString()) ?? 4.5 : 4.5,
@@ -651,7 +651,7 @@ class _HammamDetailScreenState extends State<HammamDetailScreen> {
                         const SizedBox(height: 15),
                         ..._hammamServices.map((service) => _buildServiceCard(
                           context,
-                          service['image']?.toString() ?? 'assets/images/hammam_nil.jpg',
+                          service['image_url']?.toString() ?? 'assets/images/hammam_nil.jpg',
                           service['name']?.toString() ?? 'Hammam Service',
                           service['phone']?.toString() ?? 'No phone',
                           service['id'] != null ? int.tryParse(service['id'].toString()) ?? 1 : 1,

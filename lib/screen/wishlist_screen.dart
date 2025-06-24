@@ -136,7 +136,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
                         ? item['arabic_name'] ?? item['name'] ?? 'Item'
                         : item['name'] ?? 'Item';
                     final price = item['price']?.toString() ?? '0.00';
-                    final imagePath = item['image'] ?? 'assets/images/placeholder.jpg';
+                    final imagePath = item['image_url'] ?? 'assets/images/placeholder.jpg';
                     final isNetworkImage = imagePath.startsWith('http');
                     
                     return Dismissible(

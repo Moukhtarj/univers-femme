@@ -16,6 +16,7 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
   bool _isLoading = true;
   String? _error;
   String _selectedFilter = 'all';
+  String _selectedLanguage = 'en';
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -23,6 +24,7 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
   final Map<String, Map<String, String>> _translations = {
     'en': {
       'manage_orders': 'Manage Orders',
+      'filter_orders': 'Filter Orders',
       'all': 'All',
       'pending': 'Pending',
       'confirmed': 'Confirmed',
@@ -30,6 +32,7 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
       'completed': 'Completed',
       'cancelled': 'Cancelled',
       'no_orders': 'No orders found',
+      'loading_orders': 'Loading orders...',
       'retry': 'Retry',
       'error': 'Error',
       'order': 'Order',
@@ -86,8 +89,76 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
       'no_email': 'No email',
       'unknown': 'Unknown',
     },
+    'fr': {
+      'manage_orders': 'Gérer les Commandes',
+      'filter_orders': 'Filtrer les Commandes',
+      'all': 'Tout',
+      'pending': 'En Attente',
+      'confirmed': 'Confirmé',
+      'shipped': 'Expédié',
+      'completed': 'Terminé',
+      'cancelled': 'Annulé',
+      'no_orders': 'Aucune commande trouvée',
+      'loading_orders': 'Chargement des commandes...',
+      'retry': 'Réessayer',
+      'error': 'Erreur',
+      'order': 'Commande',
+      'customer': 'Client',
+      'total': 'Total',
+      'quantity': 'Quantité',
+      'date': 'Date',
+      'comment': 'Commentaire',
+      'confirm': 'Confirmer',
+      'ship': 'Expédier',
+      'complete': 'Terminer',
+      'cancel': 'Annuler',
+      'view_details': 'Voir les Détails',
+      'close': 'Fermer',
+      'customer_information': 'Informations Client',
+      'order_details': 'Détails de la Commande',
+      'product_information': 'Informations Produit',
+      'provider_information': 'Informations Fournisseur',
+      'payment_confirmation': 'Paiement et Confirmation',
+      'comments': 'Commentaires',
+      'payment_proof': 'Preuve de Paiement',
+      'rejection_reason': 'Raison du Refus',
+      'name': 'Nom',
+      'phone': 'Téléphone',
+      'email': 'Email',
+      'start_date': 'Date de Début',
+      'end_date': 'Date de Fin',
+      'created': 'Créé',
+      'modified': 'Modifié',
+      'total_amount': 'Montant Total',
+      'service_type': 'Type de Service',
+      'product_name': 'Nom du Produit',
+      'description': 'Description',
+      'provider_name': 'Nom du Fournisseur',
+      'provider_phone': 'Téléphone du Fournisseur',
+      'payment_status': 'Statut du Paiement',
+      'owner_confirmed': 'Confirmé par le Propriétaire',
+      'payment_verified': 'Paiement Vérifié',
+      'paid': 'Payé',
+      'not_paid': 'Non Payé',
+      'yes': 'Oui',
+      'no': 'Non',
+      'no_payment_proof': 'Aucune preuve de paiement disponible',
+      'payment_proof_document': 'Document de preuve de paiement:',
+      'view_payment_proof': 'Voir la Preuve de Paiement',
+      'opening_payment_proof': 'Ouverture de la preuve de paiement',
+      'command_status_updated': 'Statut de la commande mis à jour vers',
+      'failed_to_update': 'Échec de la mise à jour de la commande',
+      'failed_to_load': 'Échec du chargement des commandes',
+      'no_auth_token': 'Aucun token d\'authentification trouvé',
+      'unknown_product': 'Produit Inconnu',
+      'unknown_customer': 'Client Inconnu',
+      'no_phone': 'Pas de téléphone',
+      'no_email': 'Pas d\'email',
+      'unknown': 'Inconnu',
+    },
     'ar': {
       'manage_orders': 'إدارة الطلبات',
+      'filter_orders': 'تصفية الطلبات',
       'all': 'الكل',
       'pending': 'في الانتظار',
       'confirmed': 'مؤكد',
@@ -95,6 +166,7 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
       'completed': 'مكتمل',
       'cancelled': 'ملغي',
       'no_orders': 'لا توجد طلبات',
+      'loading_orders': 'جاري تحميل الطلبات...',
       'retry': 'إعادة المحاولة',
       'error': 'خطأ',
       'order': 'طلب',
@@ -154,8 +226,8 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
   };
 
   String _getTranslation(String key) {
-    // For now, using English. You can add language detection logic here
-    return _translations['en']![key] ?? key;
+    // Use selected language, fallback to English
+    return _translations[_selectedLanguage]?[key] ?? _translations['en']?[key] ?? key;
   }
 
   @override
@@ -224,19 +296,31 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
           command['product_name'] = command['service_name'] ?? 'Unknown Service';
           command['customer_name'] = command['client_name'] ?? 'Unknown Customer';
           command['customer_phone'] = command['client_phone'] ?? '';
-          command['customer_email'] = command['client_email'] ?? '';
+          // command['customer_email'] = command['client_email'] ?? '';
           command['date_debut'] = command['date_commande'] ?? command['date_creation'];
-          command['date_fin'] = command['date_fin'] ?? command['date_creation'];
-          command['date_creation'] = command['date_creation'] ?? '';
-          command['date_modification'] = command['date_modification'] ?? '';
+          // command['date_fin'] = command['date_fin'] ?? command['date_creation'];
+          // command['date_creation'] = command['date_creation'] ?? '';
+          // command['date_modification'] = command['date_modification'] ?? '';
           command['product_description'] = command['commentaire'] ?? '';
           
           if (command['service_type'] == 'makeup' && command['makeup_service'] != null) {
-            command['product_name'] = command['makeup_service']['name'] ?? 'Makeup Service';
+            if (command['makeup_service'] is Map<String, dynamic>) {
+              command['product_name'] = command['makeup_service']['name'] ?? 'Makeup Service';
+            } else {
+              command['product_name'] = 'Makeup Service';
+            }
           } else if (command['service_type'] == 'accessory' && command['accessory_service'] != null) {
-            command['product_name'] = command['accessory_service']['name'] ?? 'Accessory Service';
+            if (command['accessory_service'] is Map<String, dynamic>) {
+              command['product_name'] = command['accessory_service']['name'] ?? 'Accessory Service';
+            } else {
+              command['product_name'] = 'Accessory Service';
+            }
           } else if (command['service_type'] == 'melhfa' && command['melhfa_service'] != null) {
-            command['product_name'] = command['melhfa_service']['name'] ?? 'Melhfa Service';
+            if (command['melhfa_service'] is Map<String, dynamic>) {
+              command['product_name'] = command['melhfa_service']['name'] ?? 'Melhfa Service';
+            } else {
+              command['product_name'] = 'Melhfa Service';
+            }
           }
         }
         
@@ -352,6 +436,37 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
         ),
         actions: [
           Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButton<String>(
+              value: _selectedLanguage,
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedLanguage = newValue;
+                  });
+                }
+              },
+              icon: const Icon(Icons.language, color: Colors.white),
+              dropdownColor: const Color(0xFFEC4899),
+              underline: Container(),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              items: <String>['en', 'fr', 'ar']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(
+                    value.toUpperCase(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          Container(
             margin: const EdgeInsets.only(right: 16),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
@@ -387,7 +502,7 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Filter Orders',
+                    _getTranslation('filter_orders'),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -443,7 +558,7 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Loading orders...',
+                            _getTranslation('loading_orders'),
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.grey[600],
@@ -654,13 +769,13 @@ class _ManageCommandsScreenState extends State<ManageCommandsScreen> with Ticker
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          Text(
-                            '${_getTranslation('order')} #${command['id']}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
+                          // Text(
+                          //   '${_getTranslation('order')} #${command['id']}',
+                          //   style: TextStyle(
+                          //     fontSize: 12,
+                          //     color: Colors.grey[600],
+                          //   ),
+                          // ),
                         ],
                       ),
                     ),

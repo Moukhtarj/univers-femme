@@ -190,10 +190,115 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
                         try {
-                          final response = await ApiService().post('api/token/', {
-                            'phone': _usernameController.text,
-                            'password': _passwordController.text,
-                          });
+                          // Show loading indicator
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (BuildContext context) {
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color.fromRGBO(255, 192, 203, 1),
+                                ),
+                              );
+                            },
+                          );
+
+                          print('Attempting login with phone: ${_usernameController.text}');
+                          print('API URL: ${Config.apiUrl}');
+                          print('Full endpoint: ${Config.apiUrl}/api/token/');
+                          
+                          // Test server connectivity first
+                          try {
+                            print('Testing server connectivity...');
+                            final testResponse = await http.get(Uri.parse('${Config.apiUrl}'));
+                            print('Server connectivity test: ${testResponse.statusCode}');
+                          } catch (e) {
+                            print('Server connectivity test failed: $e');
+                          }
+                          
+                          // Try different endpoint variations
+                          String endpoint = '/api/token/';
+                          Map<String, dynamic> response;
+                          
+                          try {
+                            // First try the current endpoint
+                            response = await ApiService().post(endpoint, {
+                              'phone': _usernameController.text,
+                              'password': _passwordController.text,
+                            });
+                          } catch (e) {
+                            print('First attempt failed: $e');
+                            
+                            // If 405 error, try alternative endpoints
+                            if (e.toString().contains('405')) {
+                              try {
+                                // Try with auth prefix
+                                endpoint = '/api/auth/token/';
+                                print('Trying alternative endpoint: ${Config.apiUrl}$endpoint');
+                                response = await ApiService().post(endpoint, {
+                                  'phone': _usernameController.text,
+                                  'password': _passwordController.text,
+                                });
+                              } catch (e2) {
+                                print('Second attempt failed: $e2');
+                                
+                                // Try without trailing slash
+                                try {
+                                  endpoint = '/api/token';
+                                  print('Trying endpoint without trailing slash: ${Config.apiUrl}$endpoint');
+                                  response = await ApiService().post(endpoint, {
+                                    'phone': _usernameController.text,
+                                    'password': _passwordController.text,
+                                  });
+                                } catch (e3) {
+                                  print('Third attempt failed: $e3');
+                                  
+                                  // Try with auth prefix and no trailing slash
+                                  try {
+                                    endpoint = '/api/auth/token';
+                                    print('Trying auth prefix without trailing slash: ${Config.apiUrl}$endpoint');
+                                    response = await ApiService().post(endpoint, {
+                                      'phone': _usernameController.text,
+                                      'password': _passwordController.text,
+                                    });
+                                  } catch (e4) {
+                                    print('Fourth attempt failed: $e4');
+                                    
+                                    // Try GET request as last resort
+                                    try {
+                                      endpoint = '/api/token/';
+                                      print('Trying GET request: ${Config.apiUrl}$endpoint');
+                                      response = await ApiService().getAuth(endpoint, {
+                                        'phone': _usernameController.text,
+                                        'password': _passwordController.text,
+                                      });
+                                    } catch (e5) {
+                                      print('Fifth attempt (GET) failed: $e5');
+                                      
+                                      // Try GET with auth prefix
+                                      try {
+                                        endpoint = '/api/auth/token/';
+                                        print('Trying GET with auth prefix: ${Config.apiUrl}$endpoint');
+                                        response = await ApiService().getAuth(endpoint, {
+                                          'phone': _usernameController.text,
+                                          'password': _passwordController.text,
+                                        });
+                                      } catch (e6) {
+                                        print('All attempts failed. Throwing original error.');
+                                        throw e; // Throw the original error
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            } else {
+                              // If it's not a 405 error, rethrow the original error
+                              throw e;
+                            }
+                          }
+                          
+                          // Close loading dialog
+                          Navigator.of(context).pop();
                           
                           // Save token and user data
                           final prefs = await SharedPreferences.getInstance();
@@ -202,7 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           
                           // Get user profile to check role
                           try {
-                            final userProfileResponse = await ApiService().get('api/users/profile/data/');
+                            final userProfileResponse = await ApiService().get('/api/users/profile/data/');
                             final userRole = userProfileResponse['role'] ?? 'utilisateur';
                             
                             // Debug logging
@@ -261,8 +366,36 @@ class _LoginScreenState extends State<LoginScreen> {
                             );
                           }
                         } catch (e) {
+                          // Close loading dialog if it's still open
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          }
+                          
+                          print('Login error: $e');
+                          print('Error type: ${e.runtimeType}');
+                          
+                          String errorMessage = 'Login failed';
+                          
+                          if (e.toString().contains('405')) {
+                            errorMessage = 'Server error: Method not allowed. Please contact support.';
+                          } else if (e.toString().contains('401')) {
+                            errorMessage = 'Invalid phone number or password';
+                          } else if (e.toString().contains('404')) {
+                            errorMessage = 'Login service not found. Please contact support.';
+                          } else if (e.toString().contains('500')) {
+                            errorMessage = 'Server error. Please try again later.';
+                          } else if (e.toString().contains('timeout') || e.toString().contains('connection')) {
+                            errorMessage = 'Connection error. Please check your internet connection.';
+                          } else {
+                            errorMessage = e.toString();
+                          }
+                          
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString())),
+                            SnackBar(
+                              content: Text(errorMessage),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 5),
+                            ),
                           );
                         }
                       }

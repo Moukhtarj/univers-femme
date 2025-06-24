@@ -231,7 +231,7 @@ class _GymScreenState extends State<GymScreen> {
                           final gym = _gyms[index];
                           return _buildGymCard(
                             context,
-                            gym['image']?.toString() ?? 'assets/images/gym_nil.jpg',
+                            gym['image_url']?.toString() ?? 'assets/images/gym_nil.jpg',
                             gym['name']?.toString() ?? 'Gym',
                             gym['location']?.toString() ?? _translate('main_street_nouakchott'),
                             (gym['rating'] != null) ? double.tryParse(gym['rating'].toString()) ?? 4.5 : 4.5,

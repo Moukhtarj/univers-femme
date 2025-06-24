@@ -70,8 +70,35 @@ class _FournisseurNotificationScreenState extends State<FournisseurNotificationS
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        List<Map<String, dynamic>> notifications = [];
+        
+        // Handle different response structures
+        if (data is Map<String, dynamic>) {
+          if (data.containsKey('results') && data['results'] is List) {
+            notifications = List<Map<String, dynamic>>.from(data['results']);
+          } else if (data.containsKey('data') && data['data'] is List) {
+            notifications = List<Map<String, dynamic>>.from(data['data']);
+          } else {
+            // If no recognizable structure, set empty list
+            print('Could not parse notifications from response structure');
+            notifications = [];
+          }
+        } else if (data is List) {
+          notifications = List<Map<String, dynamic>>.from(data);
+        } else {
+          print('Unexpected response format: $data');
+          notifications = [];
+        }
+        
+        // Convert string IDs to integers if needed
+        for (var notification in notifications) {
+          if (notification['id'] is String) {
+            notification['id'] = int.tryParse(notification['id']) ?? 0;
+          }
+        }
+        
         setState(() {
-          _notifications = List<Map<String, dynamic>>.from(data['results'] ?? data);
+          _notifications = notifications;
           _isLoading = false;
         });
       } else {
@@ -94,8 +121,11 @@ class _FournisseurNotificationScreenState extends State<FournisseurNotificationS
         throw Exception('No authentication token found');
       }
 
+      // Ensure notificationId is properly converted to string for URL
+      final id = notificationId.toString();
+
       final response = await http.post(
-        Uri.parse('${Config.apiUrl}/api/notifications/$notificationId/mark_as_read/'),
+        Uri.parse('${Config.apiUrl}/api/notifications/$id/mark_as_read/'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -132,8 +162,11 @@ class _FournisseurNotificationScreenState extends State<FournisseurNotificationS
         throw Exception('No authentication token found');
       }
 
+      // Ensure notificationId is properly converted to string for URL
+      final id = notificationId.toString();
+
       final response = await http.delete(
-        Uri.parse('${Config.apiUrl}/api/notifications/$notificationId/'),
+        Uri.parse('${Config.apiUrl}/api/notifications/$id/'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -320,8 +353,12 @@ class _FournisseurNotificationScreenState extends State<FournisseurNotificationS
   }
 
   Widget _buildNotificationCard(Map<String, dynamic> notification) {
-    final type = notification['type'] ?? 'general';
-    final isRead = notification['is_read'] ?? false;
+    final type = notification['type']?.toString() ?? 'general';
+    final isRead = notification['is_read'] == true;
+    final title = notification['title']?.toString() ?? 'Notification';
+    final message = notification['message']?.toString() ?? 'No message';
+    final createdAt = notification['created_at']?.toString();
+    final notificationId = notification['id'];
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -352,7 +389,7 @@ class _FournisseurNotificationScreenState extends State<FournisseurNotificationS
             ),
           ),
           title: Text(
-            notification['title'] ?? 'Notification',
+            title,
             style: TextStyle(
               fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
               color: const Color(0xFF2C3E50),
@@ -363,7 +400,7 @@ class _FournisseurNotificationScreenState extends State<FournisseurNotificationS
             children: [
               const SizedBox(height: 4),
               Text(
-                notification['message'] ?? 'No message',
+                message,
                 style: const TextStyle(
                   color: Color(0xFF7F8C8D),
                   fontSize: 14,
@@ -371,7 +408,7 @@ class _FournisseurNotificationScreenState extends State<FournisseurNotificationS
               ),
               const SizedBox(height: 4),
               Text(
-                _formatDate(notification['created_at']),
+                _formatDate(createdAt),
                 style: const TextStyle(
                   color: Color(0xFF95A5A6),
                   fontSize: 12,
@@ -405,17 +442,17 @@ class _FournisseurNotificationScreenState extends State<FournisseurNotificationS
             ],
             onSelected: (value) {
               if (value == 'mark_read') {
-                dynamic notificationId = notification['id'];
-                if (notificationId is String) {
-                  notificationId = int.tryParse(notificationId) ?? 0;
+                dynamic id = notificationId;
+                if (id is String) {
+                  id = int.tryParse(id) ?? 0;
                 }
-                _markAsRead(notificationId);
+                _markAsRead(id);
               } else if (value == 'delete') {
-                dynamic notificationId = notification['id'];
-                if (notificationId is String) {
-                  notificationId = int.tryParse(notificationId) ?? 0;
+                dynamic id = notificationId;
+                if (id is String) {
+                  id = int.tryParse(id) ?? 0;
                 }
-                _showDeleteConfirmation(notificationId);
+                _showDeleteConfirmation(id);
               }
             },
           ),

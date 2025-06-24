@@ -124,6 +124,13 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchData,
+            tooltip: widget.selectedLanguage == 'Arabic' ? 'تحديث' : 'Refresh',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,

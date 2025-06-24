@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 
 class ManageReservationsScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
   bool _isLoading = true;
   String? _error;
   String _selectedFilter = 'all';
+  String _selectedLanguage = 'en';
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -28,6 +30,207 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
     'completed',
     'cancelled',
   ];
+
+  // Local translations
+  final Map<String, Map<String, String>> _translations = {
+    'en': {
+      'reservations': 'Reservations',
+      'filter_reservations': 'Filter Reservations',
+      'all': 'All',
+      'pending': 'Pending',
+      'confirmed': 'Confirmed',
+      'completed': 'Completed',
+      'cancelled': 'Cancelled',
+      'loading_reservations': 'Loading reservations...',
+      'no_reservations': 'No reservations found',
+      'no_reservations_message': 'You don\'t have any reservations yet',
+      'no_filtered_reservations': 'No reservations found',
+      'retry': 'Retry',
+      'error': 'Error',
+      'something_went_wrong': 'Oops! Something went wrong',
+      'reservation_status_updated': 'Reservation status updated to',
+      'failed_to_update': 'Failed to update reservation',
+      'failed_to_load': 'Failed to load reservations',
+      'no_auth_token': 'No authentication token found',
+      'client_information': 'Client Information',
+      'reservation_details': 'Reservation Details',
+      'comments': 'Comments',
+      'name': 'Name',
+      'phone': 'Phone',
+      'date': 'Date',
+      'amount': 'Amount',
+      'confirm': 'Confirm',
+      'complete': 'Complete',
+      'cancel': 'Cancel',
+      'view_details': 'View Details',
+      'close': 'Close',
+      'unknown_client': 'Unknown Client',
+      'no_phone': 'No phone',
+      'unknown': 'Unknown',
+      'payment_proof': 'Payment Proof',
+      'view_payment_proof': 'View Payment Proof',
+      'opening_payment_proof': 'Opening payment proof',
+      'rejection_reason': 'Rejection Reason',
+      'customer_information': 'Customer Information',
+      'order_details': 'Order Details',
+      'product_information': 'Product Information',
+      'provider_information': 'Provider Information',
+      'payment_confirmation': 'Payment & Confirmation',
+      'start_date': 'Start Date',
+      'end_date': 'End Date',
+      'total_amount': 'Total Amount',
+      'service_type': 'Service Type',
+      'product_name': 'Product Name',
+      'description': 'Description',
+      'provider_name': 'Provider Name',
+      'provider_phone': 'Provider Phone',
+      'payment_status': 'Payment Status',
+      'owner_confirmed': 'Owner Confirmed',
+      'payment_verified': 'Payment Verified',
+      'paid': 'Paid',
+      'not_paid': 'Not Paid',
+      'yes': 'Yes',
+      'no': 'No',
+      'no_payment_proof': 'No payment proof available',
+      'payment_proof_document': 'Payment proof document:',
+      'unknown_product': 'Unknown Product',
+      'no_email': 'No email',
+      'try_again': 'Try Again',
+    },
+    'fr': {
+      'reservations': 'Réservations',
+      'filter_reservations': 'Filtrer les Réservations',
+      'all': 'Tout',
+      'pending': 'En Attente',
+      'confirmed': 'Confirmé',
+      'completed': 'Terminé',
+      'cancelled': 'Annulé',
+      'loading_reservations': 'Chargement des réservations...',
+      'no_reservations': 'Aucune réservation trouvée',
+      'no_reservations_message': 'Vous n\'avez pas encore de réservations',
+      'no_filtered_reservations': 'Aucune réservation trouvée',
+      'retry': 'Réessayer',
+      'error': 'Erreur',
+      'something_went_wrong': 'Oups ! Quelque chose s\'est mal passé',
+      'reservation_status_updated': 'Statut de réservation mis à jour vers',
+      'failed_to_update': 'Échec de la mise à jour de la réservation',
+      'failed_to_load': 'Échec du chargement des réservations',
+      'no_auth_token': 'Aucun token d\'authentification trouvé',
+      'client_information': 'Informations Client',
+      'reservation_details': 'Détails de Réservation',
+      'comments': 'Commentaires',
+      'name': 'Nom',
+      'phone': 'Téléphone',
+      'date': 'Date',
+      'amount': 'Montant',
+      'confirm': 'Confirmer',
+      'complete': 'Terminer',
+      'cancel': 'Annuler',
+      'view_details': 'Voir les Détails',
+      'close': 'Fermer',
+      'unknown_client': 'Client Inconnu',
+      'no_phone': 'Pas de téléphone',
+      'unknown': 'Inconnu',
+      'payment_proof': 'Preuve de Paiement',
+      'view_payment_proof': 'Voir la Preuve de Paiement',
+      'opening_payment_proof': 'Ouverture de la preuve de paiement',
+      'rejection_reason': 'Raison du Refus',
+      'customer_information': 'Informations Client',
+      'order_details': 'Détails de la Commande',
+      'product_information': 'Informations Produit',
+      'provider_information': 'Informations Fournisseur',
+      'payment_confirmation': 'Paiement et Confirmation',
+      'start_date': 'Date de Début',
+      'end_date': 'Date de Fin',
+      'total_amount': 'Montant Total',
+      'service_type': 'Type de Service',
+      'product_name': 'Nom du Produit',
+      'description': 'Description',
+      'provider_name': 'Nom du Fournisseur',
+      'provider_phone': 'Téléphone du Fournisseur',
+      'payment_status': 'Statut du Paiement',
+      'owner_confirmed': 'Confirmé par le Propriétaire',
+      'payment_verified': 'Paiement Vérifié',
+      'paid': 'Payé',
+      'not_paid': 'Non Payé',
+      'yes': 'Oui',
+      'no': 'Non',
+      'no_payment_proof': 'Aucune preuve de paiement disponible',
+      'payment_proof_document': 'Document de preuve de paiement:',
+      'unknown_product': 'Produit Inconnu',
+      'no_email': 'Pas d\'email',
+      'try_again': 'Réessayer',
+    },
+    'ar': {
+      'reservations': 'الحجوزات',
+      'filter_reservations': 'تصفية الحجوزات',
+      'all': 'الكل',
+      'pending': 'في الانتظار',
+      'confirmed': 'مؤكد',
+      'completed': 'مكتمل',
+      'cancelled': 'ملغي',
+      'loading_reservations': 'جاري تحميل الحجوزات...',
+      'no_reservations': 'لا توجد حجوزات',
+      'no_reservations_message': 'ليس لديك أي حجوزات بعد',
+      'no_filtered_reservations': 'لا توجد حجوزات',
+      'retry': 'إعادة المحاولة',
+      'error': 'خطأ',
+      'something_went_wrong': 'عذراً! حدث خطأ ما',
+      'reservation_status_updated': 'تم تحديث حالة الحجز إلى',
+      'failed_to_update': 'فشل في تحديث الحجز',
+      'failed_to_load': 'فشل في تحميل الحجوزات',
+      'no_auth_token': 'لم يتم العثور على رمز المصادقة',
+      'client_information': 'معلومات العميل',
+      'reservation_details': 'تفاصيل الحجز',
+      'comments': 'التعليقات',
+      'name': 'الاسم',
+      'phone': 'الهاتف',
+      'date': 'التاريخ',
+      'amount': 'المبلغ',
+      'confirm': 'تأكيد',
+      'complete': 'إكمال',
+      'cancel': 'إلغاء',
+      'view_details': 'عرض التفاصيل',
+      'close': 'إغلاق',
+      'unknown_client': 'عميل غير معروف',
+      'no_phone': 'لا يوجد هاتف',
+      'unknown': 'غير معروف',
+      'payment_proof': 'إثبات الدفع',
+      'view_payment_proof': 'عرض إثبات الدفع',
+      'opening_payment_proof': 'فتح إثبات الدفع',
+      'rejection_reason': 'سبب الرفض',
+      'customer_information': 'معلومات العميل',
+      'order_details': 'تفاصيل الطلب',
+      'product_information': 'معلومات المنتج',
+      'provider_information': 'معلومات المزود',
+      'payment_confirmation': 'الدفع والتأكيد',
+      'start_date': 'تاريخ البداية',
+      'end_date': 'تاريخ الانتهاء',
+      'total_amount': 'المبلغ الإجمالي',
+      'service_type': 'نوع الخدمة',
+      'product_name': 'اسم المنتج',
+      'description': 'الوصف',
+      'provider_name': 'اسم المزود',
+      'provider_phone': 'هاتف المزود',
+      'payment_status': 'حالة الدفع',
+      'owner_confirmed': 'تم تأكيد المالك',
+      'payment_verified': 'تم التحقق من الدفع',
+      'paid': 'مدفوع',
+      'not_paid': 'غير مدفوع',
+      'yes': 'نعم',
+      'no': 'لا',
+      'no_payment_proof': 'لا يوجد إثبات دفع',
+      'payment_proof_document': 'مستند إثبات الدفع:',
+      'unknown_product': 'منتج غير معروف',
+      'no_email': 'لا يوجد بريد إلكتروني',
+      'try_again': 'إعادة المحاولة',
+    },
+  };
+
+  String _getTranslation(String key) {
+    // Use selected language, fallback to English
+    return _translations[_selectedLanguage]?[key] ?? _translations['en']?[key] ?? key;
+  }
 
   @override
   void initState() {
@@ -66,7 +269,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
       final token = prefs.getString('token');
 
       if (token == null) {
-        throw Exception('No authentication token found');
+        throw Exception(_getTranslation('no_auth_token'));
       }
 
       final response = await http.get(
@@ -109,7 +312,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
           _isLoading = false;
         });
       } else {
-        throw Exception('Failed to load reservations: ${response.statusCode}');
+        throw Exception('${_getTranslation('failed_to_load')}: ${response.statusCode}');
       }
     } catch (e) {
       setState(() {
@@ -125,7 +328,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
       final token = prefs.getString('token');
 
       if (token == null) {
-        throw Exception('No authentication token found');
+        throw Exception(_getTranslation('no_auth_token'));
       }
 
       final response = await http.patch(
@@ -140,18 +343,18 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Reservation status updated to $status'),
+            content: Text('${_getTranslation('reservation_status_updated')} $status'),
             backgroundColor: _getStatusColor(status),
           ),
         );
         _loadReservations();
       } else {
-        throw Exception('Failed to update reservation: ${response.statusCode}');
+        throw Exception('${_getTranslation('failed_to_update')}: ${response.statusCode}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text('${_getTranslation('error')}: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -250,9 +453,9 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text(
-          'Reservations',
-          style: TextStyle(
+        title: Text(
+          _getTranslation('reservations'),
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 24,
@@ -265,6 +468,37 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
           statusBarIconBrightness: Brightness.light,
         ),
         actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButton<String>(
+              value: _selectedLanguage,
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedLanguage = newValue;
+                  });
+                }
+              },
+              icon: const Icon(Icons.language, color: Colors.white),
+              dropdownColor: const Color.fromRGBO(255, 192, 203, 1),
+              underline: Container(),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              items: <String>['en', 'fr', 'ar']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(
+                    value.toUpperCase(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
           Container(
             margin: const EdgeInsets.only(right: 16),
             decoration: BoxDecoration(
@@ -313,9 +547,9 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text(
-                      'Filter Reservations',
-                      style: TextStyle(
+                    Text(
+                      _getTranslation('filter_reservations'),
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF2C3E50),
@@ -406,9 +640,9 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Loading reservations...',
-                          style: TextStyle(
+                        Text(
+                          _getTranslation('loading_reservations'),
+                          style: const TextStyle(
                             fontSize: 16,
                             color: Color(0xFF7F8C8D),
                           ),
@@ -448,9 +682,9 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              const Text(
-                                'Oops! Something went wrong',
-                                style: TextStyle(
+                              Text(
+                                _getTranslation('something_went_wrong'),
+                                style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF2C3E50),
@@ -458,7 +692,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Error: $_error',
+                                '${_getTranslation('error')}: $_error',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFF7F8C8D),
@@ -469,7 +703,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                               ElevatedButton.icon(
                                 onPressed: _loadReservations,
                                 icon: const Icon(Icons.refresh),
-                                label: const Text('Try Again'),
+                                label: Text(_getTranslation('try_again')),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color.fromRGBO(255, 192, 203, 1),
                                   foregroundColor: Colors.white,
@@ -515,9 +749,9 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                                     ),
                                   ),
                                   const SizedBox(height: 16),
-                                  const Text(
-                                    'No reservations found',
-                                    style: TextStyle(
+                                  Text(
+                                    _getTranslation('no_reservations'),
+                                    style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
                                       color: Color(0xFF2C3E50),
@@ -526,8 +760,8 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                                   const SizedBox(height: 8),
                                   Text(
                                     _selectedFilter == 'all'
-                                        ? 'You don\'t have any reservations yet'
-                                        : 'No ${_selectedFilter} reservations found',
+                                        ? _getTranslation('no_reservations_message')
+                                        : '${_getTranslation('no_filtered_reservations')} ${_selectedFilter}',
                                     style: const TextStyle(
                                       fontSize: 16,
                                       color: Color(0xFF7F8C8D),
@@ -675,11 +909,11 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
               children: [
                 // Client Information
                 _buildInfoSection(
-                  'Client Information',
+                  _getTranslation('client_information'),
                   Icons.person,
                   [
-                    _buildInfoRow('Name', reservation['user_name'] ?? 'Unknown Client'),
-                    _buildInfoRow('Phone', reservation['client_phone'] ?? 'No phone'),
+                    _buildInfoRow(_getTranslation('name'), reservation['user_name'] ?? _getTranslation('unknown_client')),
+                    _buildInfoRow(_getTranslation('phone'), reservation['client_phone'] ?? _getTranslation('no_phone')),
                   ],
                 ),
                 
@@ -687,18 +921,18 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                 
                 // Reservation Details
                 _buildInfoSection(
-                  'Reservation Details',
+                  _getTranslation('reservation_details'),
                   Icons.event,
                   [
-                    _buildInfoRow('Date', _formatDate(reservation['date_debut'])),
-                    _buildInfoRow('Amount', '\$${reservation['montant_total']?.toString() ?? '0'}'),
+                    _buildInfoRow(_getTranslation('date'), _formatDate(reservation['date_debut'])),
+                    _buildInfoRow(_getTranslation('amount'), '\$${reservation['montant_total']?.toString() ?? '0'}'),
                   ],
                 ),
                 
                 if (reservation['commentaire']?.isNotEmpty == true) ...[
                   const SizedBox(height: 20),
                   _buildInfoSection(
-                    'Comments',
+                    _getTranslation('comments'),
                     Icons.comment,
                     [
                       _buildInfoRow('', reservation['commentaire']),
@@ -714,7 +948,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                     if (status == 'pending')
                       Expanded(
                         child: _buildActionButton(
-                          'Confirm',
+                          _getTranslation('confirm'),
                           Icons.check,
                           const Color(0xFF27AE60),
                           () => _updateReservationStatus(
@@ -726,7 +960,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                     if (status == 'confirmed')
                       Expanded(
                         child: _buildActionButton(
-                          'Complete',
+                          _getTranslation('complete'),
                           Icons.done_all,
                           const Color(0xFF3498DB),
                           () => _updateReservationStatus(
@@ -740,7 +974,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                         const SizedBox(width: 12),
                       Expanded(
                         child: _buildActionButton(
-                          'Cancel',
+                          _getTranslation('cancel'),
                           Icons.cancel,
                           const Color(0xFFE74C3C),
                           () => _updateReservationStatus(
@@ -759,7 +993,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                 SizedBox(
                   width: double.infinity,
                   child: _buildActionButton(
-                    'View Details',
+                    _getTranslation('view_details'),
                     Icons.visibility,
                     const Color.fromRGBO(255, 192, 203, 1),
                     () => _showReservationDetails(reservation),
@@ -917,13 +1151,13 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Text(
-                              'Reservation #${reservation['id']}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
+                            // Text(
+                            //   'Reservation #${reservation['id']}',
+                            //   style: const TextStyle(
+                            //     color: Colors.white70,
+                            //     fontSize: 14,
+                            //   ),
+                            // ),
                           ],
                         ),
                       ),
@@ -968,14 +1202,14 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                         
                         // Reservation Details Section
                         _buildDetailSection(
-                          'Reservation Details',
+                          _getTranslation('reservation_details'),
                           Icons.event_note,
                           [
-                            _buildDetailRow('Start Date', _formatDate(reservation['date_debut'])),
-                            _buildDetailRow('End Date', _formatDate(reservation['date_fin'])),
+                            _buildDetailRow(_getTranslation('start_date'), _formatDate(reservation['date_debut'])),
+                            _buildDetailRow(_getTranslation('end_date'), _formatDate(reservation['date_fin'])),
                             // _buildDetailRow('Created', _formatDate(reservation['date_creation'])),
                             // _buildDetailRow('Modified', _formatDate(reservation['date_modification'])),
-                            _buildDetailRow('Total Amount', '\$${reservation['montant_total']?.toString() ?? '0'}'),
+                            _buildDetailRow(_getTranslation('total_amount'), '\$${reservation['montant_total']?.toString() ?? '0'}'),
                           ],
                         ),
                         
@@ -983,20 +1217,20 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                         
                         // Service Information Section
                         _buildDetailSection(
-                          'Service Information',
+                          _getTranslation('service_type'),
                           Icons.business_center,
                           [
-                            _buildDetailRow('Service Type', serviceType.toUpperCase()),
-                            _buildDetailRow('Service Name', reservation['service_name'] ?? 'Unknown Service'),
+                            _buildDetailRow(_getTranslation('service_type'), serviceType.toUpperCase()),
+                            _buildDetailRow(_getTranslation('product_name'), reservation['service_name'] ?? _getTranslation('unknown_product')),
                             if (reservation['service_description'] != null)
-                              _buildDetailRow('Description', reservation['service_description']),
+                              _buildDetailRow(_getTranslation('description'), reservation['service_description']),
                           ],
                         ),
                         
                         if (reservation['commentaire']?.isNotEmpty == true) ...[
                           const SizedBox(height: 20),
                           _buildDetailSection(
-                            'Comments',
+                            _getTranslation('comments'),
                             Icons.comment,
                             [
                               _buildDetailRow('', reservation['commentaire']),
@@ -1007,7 +1241,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                         if (isPaid && reservation['preuve_paiement'] != null) ...[
                           const SizedBox(height: 20),
                           _buildDetailSection(
-                            'Payment Proof',
+                            _getTranslation('payment_proof'),
                             Icons.receipt,
                             [
                               _buildPaymentProofRow(reservation['preuve_paiement']),
@@ -1018,7 +1252,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                         if (reservation['raison_refus']?.isNotEmpty == true) ...[
                           const SizedBox(height: 20),
                           _buildDetailSection(
-                            'Rejection Reason',
+                            _getTranslation('rejection_reason'),
                             Icons.cancel,
                             [
                               _buildDetailRow('', reservation['raison_refus']),
@@ -1045,9 +1279,9 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                       Expanded(
                         child: TextButton(
                           onPressed: () => Navigator.of(context).pop(),
-                          child: const Text(
-                            'Close',
-                            style: TextStyle(
+                          child: Text(
+                            _getTranslation('close'),
+                            style: const TextStyle(
                               color: Color(0xFF7F8C8D),
                               fontSize: 16,
                             ),
@@ -1135,9 +1369,9 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
 
   Widget _buildPaymentProofRow(String? proofUrl) {
     if (proofUrl == null || proofUrl.isEmpty) {
-      return const Text(
-        'No payment ',
-        style: TextStyle(
+      return Text(
+        _getTranslation('no_payment_proof'),
+        style: const TextStyle(
           fontSize: 14,
           color: Color(0xFF7F8C8D),
           fontStyle: FontStyle.italic,
@@ -1148,9 +1382,9 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Payment proof document:',
-          style: TextStyle(
+        Text(
+          _getTranslation('payment_proof_document'),
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Color(0xFF2C3E50),
@@ -1179,7 +1413,7 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'View Payment Proof',
+                    _getTranslation('view_payment_proof'),
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -1200,14 +1434,338 @@ class _ManageReservationsScreenState extends State<ManageReservationsScreen>
     );
   }
 
-  void _openPaymentProof(String proofUrl) {
-    // This would typically open the document in a viewer or download it
-    // For now, we'll show a snackbar with the URL
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening payment proof: $proofUrl'),
-        backgroundColor: const Color.fromRGBO(255, 192, 203, 1),
-      ),
+  void _openPaymentProof(String proofUrl) async {
+    try {
+      // Check if the URL is valid
+      final Uri uri = Uri.parse(proofUrl);
+      
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: Color.fromRGBO(255, 192, 203, 1),
+            ),
+          );
+        },
+      );
+
+      // Try to launch the URL
+      final bool canLaunch = await canLaunchUrl(uri);
+      
+      // Close loading dialog
+      Navigator.of(context).pop();
+      
+      if (canLaunch) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        // If can't launch, show the document in a custom viewer
+        _showPaymentProofDialog(proofUrl);
+      }
+    } catch (e) {
+      // Close loading dialog if it's still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      // Show error and fallback to custom viewer
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${_getTranslation('error')}: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      
+      _showPaymentProofDialog(proofUrl);
+    }
+  }
+
+  void _showPaymentProofDialog(String proofUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(
+              maxWidth: 400,
+              maxHeight: 600,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color.fromRGBO(255, 192, 203, 1),
+                        const Color.fromRGBO(255, 182, 193, 1),
+                      ],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.receipt,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _getTranslation('payment_proof'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _getFileTypeFromUrl(proofUrl),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Content
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        // File preview or info
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                _getFileIcon(proofUrl),
+                                size: 48,
+                                color: const Color.fromRGBO(255, 192, 203, 1),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _getFileNameFromUrl(proofUrl),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2C3E50),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                proofUrl,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF7F8C8D),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Action buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  try {
+                                    final Uri uri = Uri.parse(proofUrl);
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('${_getTranslation('error')}: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.open_in_new),
+                                label: Text(_getTranslation('view_payment_proof')),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color.fromRGBO(255, 192, 203, 1),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  try {
+                                    final Uri uri = Uri.parse(proofUrl);
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('${_getTranslation('error')}: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.download),
+                                label: const Text('Download'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF27AE60),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Footer
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text(
+                            _getTranslation('close'),
+                            style: const TextStyle(
+                              color: Color(0xFF7F8C8D),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  String _getFileTypeFromUrl(String url) {
+    final extension = url.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'PDF Document';
+      case 'jpg':
+      case 'jpeg':
+        return 'JPEG Image';
+      case 'png':
+        return 'PNG Image';
+      case 'gif':
+        return 'GIF Image';
+      case 'webp':
+        return 'WebP Image';
+      case 'doc':
+        return 'Word Document';
+      case 'docx':
+        return 'Word Document';
+      case 'txt':
+        return 'Text File';
+      default:
+        return 'Document';
+    }
+  }
+
+  IconData _getFileIcon(String url) {
+    final extension = url.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'webp':
+        return Icons.image;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'txt':
+        return Icons.text_snippet;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  String _getFileNameFromUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments;
+      if (pathSegments.isNotEmpty) {
+        return pathSegments.last;
+      }
+      return 'Payment Proof';
+    } catch (e) {
+      return 'Payment Proof';
+    }
   }
 }

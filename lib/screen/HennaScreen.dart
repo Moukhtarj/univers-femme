@@ -227,7 +227,7 @@ class _HennaScreenState extends State<HennaScreen> {
                       
                       return _buildServiceCard(
                         context,
-                        service['image']?.toString() ?? 'assets/images/henna1.jpg',
+                        service['image_url']?.toString() ?? 'assets/images/henna1.jpg',
                         service['name']?.toString() ?? 'Henna Service',
                         service['phone']?.toString() ?? '+222 22134478',
                         service['id'] != null ? int.tryParse(service['id'].toString()) ?? 1 : 1,

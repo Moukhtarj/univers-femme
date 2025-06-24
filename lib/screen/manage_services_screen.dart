@@ -16,6 +16,124 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
   late TabController _tabController;
   bool _isLoading = true;
   String? _error;
+  String _selectedLanguage = 'en'; // Add language selection
+
+  // Local translations
+  final Map<String, Map<String, String>> _translations = {
+    'en': {
+      'manage_services': 'Manage Services',
+      'henna_services': 'Henna Services',
+      'accessories': 'Accessories',
+      'melhfa_models': 'Melhfa Models',
+      'hammam_services': 'Hammam Services',
+      'gym_services': 'Gym Services',
+      'makeup_services': 'Makeup Services',
+      'no_services_found': 'No services found',
+      'add_first_service': 'Add your first service',
+      'service_deleted': 'Service deleted successfully',
+      'service_added': 'Service added successfully',
+      'error': 'Error',
+      'retry': 'Retry',
+      'no_auth_token': 'No authentication token found',
+      'failed_to_delete': 'Failed to delete service',
+      'edit': 'Edit',
+      'delete': 'Delete',
+      'cancel': 'Cancel',
+      'save': 'Save',
+      'name': 'Name',
+      'description': 'Description',
+      'price': 'Price',
+      'image': 'Image',
+      'add_service': 'Add Service',
+      'edit_service': 'Edit Service',
+      'service_name': 'Service Name',
+      'service_description': 'Service Description',
+      'service_price': 'Service Price',
+      'service_image': 'Service Image',
+      'loading': 'Loading...',
+      'please_enter': 'Please enter',
+      'please_enter_valid_number': 'Please enter a valid number',
+      'active': 'Active',
+      'update_service': 'Update Service',
+    },
+    'fr': {
+      'manage_services': 'Gérer les Services',
+      'henna_services': 'Services de Henné',
+      'accessories': 'Accessoires',
+      'melhfa_models': 'Modèles de Melhfa',
+      'hammam_services': 'Services de Hammam',
+      'gym_services': 'Services de Gym',
+      'makeup_services': 'Services de Maquillage',
+      'no_services_found': 'Aucun service trouvé',
+      'add_first_service': 'Ajoutez votre premier service',
+      'service_deleted': 'Service supprimé avec succès',
+      'service_added': 'Service ajouté avec succès',
+      'error': 'Erreur',
+      'retry': 'Réessayer',
+      'no_auth_token': 'Aucun token d\'authentification trouvé',
+      'failed_to_delete': 'Échec de la suppression du service',
+      'edit': 'Modifier',
+      'delete': 'Supprimer',
+      'cancel': 'Annuler',
+      'save': 'Enregistrer',
+      'name': 'Nom',
+      'description': 'Description',
+      'price': 'Prix',
+      'image': 'Image',
+      'add_service': 'Ajouter un Service',
+      'edit_service': 'Modifier le Service',
+      'service_name': 'Nom du Service',
+      'service_description': 'Description du Service',
+      'service_price': 'Prix du Service',
+      'service_image': 'Image du Service',
+      'loading': 'Chargement...',
+      'please_enter': 'Veuillez entrer',
+      'please_enter_valid_number': 'Veuillez entrer un nombre valide',
+      'active': 'Actif',
+      'update_service': 'Mettre à jour le Service',
+    },
+    'ar': {
+      'manage_services': 'إدارة الخدمات',
+      'henna_services': 'خدمات الحناء',
+      'accessories': 'الإكسسوارات',
+      'melhfa_models': 'نماذج الملحفة',
+      'hammam_services': 'خدمات الحمام',
+      'gym_services': 'خدمات الجيم',
+      'makeup_services': 'خدمات المكياج',
+      'no_services_found': 'لم يتم العثور على خدمات',
+      'add_first_service': 'أضف خدمتك الأولى',
+      'service_deleted': 'تم حذف الخدمة بنجاح',
+      'service_added': 'تم إضافة الخدمة بنجاح',
+      'error': 'خطأ',
+      'retry': 'إعادة المحاولة',
+      'no_auth_token': 'لم يتم العثور على رمز المصادقة',
+      'failed_to_delete': 'فشل في حذف الخدمة',
+      'edit': 'تعديل',
+      'delete': 'حذف',
+      'cancel': 'إلغاء',
+      'save': 'حفظ',
+      'name': 'الاسم',
+      'description': 'الوصف',
+      'price': 'السعر',
+      'image': 'الصورة',
+      'add_service': 'إضافة خدمة',
+      'edit_service': 'تعديل الخدمة',
+      'service_name': 'اسم الخدمة',
+      'service_description': 'وصف الخدمة',
+      'service_price': 'سعر الخدمة',
+      'service_image': 'صورة الخدمة',
+      'loading': 'جاري التحميل...',
+      'please_enter': 'يرجى إدخال',
+      'please_enter_valid_number': 'يرجى إدخال رقم صحيح',
+      'active': 'نشط',
+      'update_service': 'تحديث الخدمة',
+    },
+  };
+
+  String _getTranslation(String key) {
+    // Use selected language, fallback to English
+    return _translations[_selectedLanguage]?[key] ?? _translations['en']?[key] ?? key;
+  }
 
   // Data for different service types
   Map<String, List<Map<String, dynamic>>> _services = {
@@ -60,7 +178,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
       final token = prefs.getString('token');
 
       if (token == null) {
-        throw Exception('No authentication token found');
+        throw Exception(_getTranslation('no_auth_token'));
       }
 
       // Load services for each type
@@ -191,15 +309,15 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
 
       if (response.statusCode == 204) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Service deleted successfully')),
+          SnackBar(content: Text(_getTranslation('service_deleted'))),
         );
         _loadAllServices();
       } else {
-        throw Exception('Failed to delete service: ${response.statusCode}');
+        throw Exception('${_getTranslation('failed_to_delete')}: ${response.statusCode}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${_getTranslation('error')}: $e')),
       );
     }
   }
@@ -207,14 +325,21 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
   void _showAddServiceDialog(String serviceType) {
     showDialog(
       context: context,
-      builder: (context) => AddServiceDialog(serviceType: serviceType),
+      builder: (context) => AddServiceDialog(
+        serviceType: serviceType,
+        getTranslation: _getTranslation,
+      ),
     ).then((_) => _loadAllServices());
   }
 
   void _showEditServiceDialog(String serviceType, Map<String, dynamic> service) {
     showDialog(
       context: context,
-      builder: (context) => EditServiceDialog(serviceType: serviceType, service: service),
+      builder: (context) => EditServiceDialog(
+        serviceType: serviceType,
+        service: service,
+        getTranslation: _getTranslation,
+      ),
     ).then((_) => _loadAllServices());
   }
 
@@ -259,19 +384,19 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
   String _getServiceTypeTitle(String serviceType) {
     switch (serviceType) {
       case 'henna':
-        return 'Henna Services';
+        return _getTranslation('henna_services');
       case 'accessories':
-        return 'Accessories';
+        return _getTranslation('accessories');
       case 'melhfa':
-        return 'Melhfa Models';
+        return _getTranslation('melhfa_models');
       case 'hammam':
-        return 'Hammam Services';
+        return _getTranslation('hammam_services');
       case 'gym':
-        return 'Gym Services';
+        return _getTranslation('gym_services');
       case 'makeup':
-        return 'Makeup Services';
+        return _getTranslation('makeup_services');
       default:
-        return serviceType.toUpperCase();
+        return 'Service';
     }
   }
 
@@ -280,7 +405,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Manage Services'),
+        title: Text(_getTranslation('manage_services')),
         backgroundColor: const Color.fromRGBO(255, 192, 203, 1),
         elevation: 0,
         bottom: TabBar(
@@ -297,6 +422,37 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
           }).toList(),
         ),
         actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButton<String>(
+              value: _selectedLanguage,
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedLanguage = newValue;
+                  });
+                }
+              },
+              icon: const Icon(Icons.language, color: Colors.white),
+              dropdownColor: const Color.fromRGBO(255, 192, 203, 1),
+              underline: Container(),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              items: <String>['en', 'fr', 'ar']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(
+                    value.toUpperCase(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadAllServices,
@@ -310,10 +466,10 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Error: $_error'),
+                      Text('${_getTranslation('error')}: $_error'),
                       ElevatedButton(
                         onPressed: _loadAllServices,
-                        child: const Text('Retry'),
+                        child: Text(_getTranslation('retry')),
                       ),
                     ],
                   ),
@@ -350,7 +506,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'No ${_getServiceTypeTitle(serviceType)} found',
+              _getTranslation('no_services_found'),
               style: const TextStyle(
                 fontSize: 18,
                 color: Color(0xFF7F8C8D),
@@ -358,7 +514,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your first ${_getServiceTypeTitle(serviceType).toLowerCase()}',
+              _getTranslation('add_first_service'),
               style: const TextStyle(
                 fontSize: 14,
                 color: Color(0xFF95A5A6),
@@ -381,11 +537,11 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
             borderRadius: BorderRadius.circular(12),
           ),
           child: ListTile(
-            leading: service['image'] != null && service['image'].isNotEmpty
+            leading: service['image_url'] != null && service['image_url'].isNotEmpty
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      service['image'],
+                      service['image_url'],
                       width: 50,
                       height: 50,
                       fit: BoxFit.cover,
@@ -497,7 +653,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Service'),
+        title: Text('Delete Service'),
         content: Text('Are you sure you want to delete this ${_getServiceTypeTitle(serviceType).toLowerCase()}?'),
         actions: [
           TextButton(
@@ -520,8 +676,13 @@ class _ManageServicesScreenState extends State<ManageServicesScreen>
 
 class AddServiceDialog extends StatefulWidget {
   final String serviceType;
+  final String Function(String) getTranslation;
 
-  const AddServiceDialog({super.key, required this.serviceType});
+  const AddServiceDialog({
+    super.key,
+    required this.serviceType,
+    required this.getTranslation,
+  });
 
   @override
   State<AddServiceDialog> createState() => _AddServiceDialogState();
@@ -678,14 +839,14 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
       if (response.statusCode == 201) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Service added successfully')),
+          SnackBar(content: Text(widget.getTranslation('service_added'))),
         );
       } else {
         throw Exception('Failed to add service: ${response.statusCode}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${widget.getTranslation('error')}: $e')),
       );
     } finally {
       setState(() {
@@ -706,11 +867,13 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
 class EditServiceDialog extends StatefulWidget {
   final String serviceType;
   final Map<String, dynamic> service;
+  final String Function(String) getTranslation;
 
   const EditServiceDialog({
     super.key,
     required this.serviceType,
     required this.service,
+    required this.getTranslation,
   });
 
   @override
@@ -737,7 +900,7 @@ class _EditServiceDialogState extends State<EditServiceDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Edit ${_getServiceTypeTitle(widget.serviceType)}'),
+      title: Text('${widget.getTranslation('edit_service')} - ${_getServiceTypeTitle(widget.serviceType)}'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -746,35 +909,35 @@ class _EditServiceDialogState extends State<EditServiceDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: widget.getTranslation('name')),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a name';
+                    return '${widget.getTranslation('please_enter')} ${widget.getTranslation('name').toLowerCase()}';
                   }
                   return null;
                 },
               ),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: InputDecoration(labelText: widget.getTranslation('description')),
                 maxLines: 3,
               ),
               TextFormField(
                 controller: _priceController,
-                decoration: const InputDecoration(labelText: 'Price'),
+                decoration: InputDecoration(labelText: widget.getTranslation('price')),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a price';
+                    return '${widget.getTranslation('please_enter')} ${widget.getTranslation('price').toLowerCase()}';
                   }
                   if (double.tryParse(value) == null) {
-                    return 'Please enter a valid number';
+                    return widget.getTranslation('please_enter_valid_number');
                   }
                   return null;
                 },
               ),
               SwitchListTile(
-                title: const Text('Active'),
+                title: Text(widget.getTranslation('active')),
                 value: _isActive,
                 onChanged: (value) {
                   setState(() {
@@ -789,13 +952,13 @@ class _EditServiceDialogState extends State<EditServiceDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(widget.getTranslation('cancel')),
         ),
         ElevatedButton(
           onPressed: _isSubmitting ? null : _updateService,
           child: _isSubmitting
               ? const CircularProgressIndicator()
-              : const Text('Update Service'),
+              : Text(widget.getTranslation('update_service')),
         ),
       ],
     );
@@ -804,17 +967,17 @@ class _EditServiceDialogState extends State<EditServiceDialog> {
   String _getServiceTypeTitle(String serviceType) {
     switch (serviceType) {
       case 'henna':
-        return 'Henna Service';
+        return widget.getTranslation('henna_services');
       case 'accessories':
-        return 'Accessory';
+        return widget.getTranslation('accessories');
       case 'melhfa':
-        return 'Melhfa Model';
+        return widget.getTranslation('melhfa_models');
       case 'hammam':
-        return 'Hammam Service';
+        return widget.getTranslation('hammam_services');
       case 'gym':
-        return 'Gym Service';
+        return widget.getTranslation('gym_services');
       case 'makeup':
-        return 'Makeup Service';
+        return widget.getTranslation('makeup_services');
       default:
         return 'Service';
     }
@@ -884,7 +1047,7 @@ class _EditServiceDialogState extends State<EditServiceDialog> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${widget.getTranslation('error')}: $e')),
       );
     } finally {
       setState(() {

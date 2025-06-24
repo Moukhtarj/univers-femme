@@ -40,14 +40,7 @@ class _MelhfaScreenState extends State<MelhfaScreen> {
 
       final types = await _apiService.getMelhfaTypes();
       
-      // Process types to ensure image URLs are complete
-      for (var type in types) {
-        if (type['image'] != null && type['image'].toString().isNotEmpty && !type['image'].toString().startsWith('http')) {
-          // If the image path doesn't start with http, assume it's a relative path and prepend the base URL
-          type['image'] = '${_apiService.baseUrl}${type['image']}';
-        }
-      }
-
+      // No need to process image URLs - use image_url from backend
       setState(() {
         _melhfaTypes = types;
         _isLoading = false;
@@ -117,8 +110,8 @@ class _MelhfaScreenState extends State<MelhfaScreen> {
                       const SizedBox(height: 15),
                       ..._melhfaTypes.map((type) => _buildMelhfaTypeCard(
                         context,
-                        type['image']?.toString() ?? 'assets/images/m1.jpg',
-                        type['name']?.toString() ?? 'Melhfa',
+                        type['image_url']?.toString() ?? 'assets/images/m1.jpg',
+                        type['type']?.toString() ?? 'Melhfa',
                         type['rating'] != null ? double.tryParse(type['rating'].toString()) ?? 4.5 : 4.5,
                         type['id'] != null ? int.tryParse(type['id'].toString()) ?? 1 : 1,
                       )).toList(),
@@ -327,14 +320,6 @@ class _MelhfaListScreenState extends State<MelhfaListScreen> {
 
       final models = await _apiService.getMelhfaModels(widget.typeId);
       
-      // Process models to ensure image URLs are complete
-      for (var model in models) {
-        if (model['image'] != null && model['image'].toString().isNotEmpty && !model['image'].toString().startsWith('http')) {
-          // If the image path doesn't start with http, assume it's a relative path and prepend the base URL
-          model['image'] = '${_apiService.baseUrl}${model['image']}';
-        }
-      }
-
       setState(() {
         _melhfaModels = models;
         _isLoading = false;
@@ -404,7 +389,7 @@ class _MelhfaListScreenState extends State<MelhfaListScreen> {
                       const SizedBox(height: 15),
                       ..._melhfaModels.map((model) => _buildMelhfaModelCard(
                         context,
-                        model['image']?.toString() ?? 'assets/images/placeholder.jpg',
+                        model['image_url']?.toString() ?? 'assets/images/placeholder.jpg',
                         model['name']?.toString() ?? 'Melhfa Model',
                         model['price']?.toString() ?? '0',
                         model['id'] != null ? int.tryParse(model['id'].toString()) ?? 1 : 1,
