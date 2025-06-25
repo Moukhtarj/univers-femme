@@ -127,21 +127,75 @@ class _CommandScreenState extends State<CommandScreen> {
         _error = null;
       });
 
-      // Get a valid service ID
-      final validServiceId = await _apiService.getValidServiceId(widget.serviceId);
-      if (validServiceId == null) {
-        throw Exception(widget.selectedLanguage == 'Arabic'
-            ? 'لم يتم العثور على الخدمة المطلوبة'
-            : 'Requested service not found');
-      }
+      print('=== COMMAND SUBMISSION DEBUG ===');
+      print('Product name: ${widget.productName}');
+      print('Product name (lowercase): ${widget.productName.toLowerCase()}');
+      print('Contains melhfa: ${widget.productName.toLowerCase().contains('melhfa')}');
+      print('Contains ملحفة: ${widget.productName.toLowerCase().contains('ملحفة')}');
+      print('Contains gaz: ${widget.productName.toLowerCase().contains('gaz')}');
+      print('Contains karra: ${widget.productName.toLowerCase().contains('karra')}');
+      print('Contains khyata: ${widget.productName.toLowerCase().contains('khyata')}');
+      print('Contains accessory: ${widget.productName.toLowerCase().contains('accessory')}');
+      print('Contains اكسسوار: ${widget.productName.toLowerCase().contains('اكسسوار')}');
+      print('Contains jewelry: ${widget.productName.toLowerCase().contains('jewelry')}');
+      print('Contains bag: ${widget.productName.toLowerCase().contains('bag')}');
+      print('Contains scarf: ${widget.productName.toLowerCase().contains('scarf')}');
+      print('Contains necklace: ${widget.productName.toLowerCase().contains('necklace')}');
+      print('Contains ring: ${widget.productName.toLowerCase().contains('ring')}');
+      print('Contains bracelet: ${widget.productName.toLowerCase().contains('bracelet')}');
+      print('Contains earring: ${widget.productName.toLowerCase().contains('earring')}');
+      print('Contains makeup: ${widget.productName.toLowerCase().contains('makeup')}');
+      print('Contains مكياج: ${widget.productName.toLowerCase().contains('مكياج')}');
+      print('Contains booking: ${widget.productName.toLowerCase().contains('booking')}');
+      print('Contains حجز: ${widget.productName.toLowerCase().contains('حجز')}');
+      print('Service ID: ${widget.serviceId}');
+      print('Product price: ${widget.productPrice}');
+      print('Total price: $_totalPrice');
 
       // Format current date for API
       final now = DateTime.now();
       final formattedDate = DateFormat('yyyy-MM-dd').format(now);
 
+      // Determine service type based on the product name
+      String serviceType = 'makeup'; // Default to makeup (Django expects 'makeup' not 'henna')
+      print('Starting service type detection...');
+      print('Checking for melhfa...');
+      
+      // Check for melhfa products - they have specific names like 'gaz', 'karra', 'khyata'
+      if (widget.productName.toLowerCase().contains('melhfa') || 
+          widget.productName.toLowerCase().contains('ملحفة') ||
+          widget.productName.toLowerCase().contains('gaz') ||
+          widget.productName.toLowerCase().contains('karra') ||
+          widget.productName.toLowerCase().contains('khyata')) {
+        serviceType = 'melhfa';
+        print('Melhfa detected!');
+      } else if (widget.productName.toLowerCase().contains('accessory') || 
+                 widget.productName.toLowerCase().contains('اكسسوار') ||
+                 widget.productName.toLowerCase().contains('jewelry') ||
+                 widget.productName.toLowerCase().contains('bag') ||
+                 widget.productName.toLowerCase().contains('scarf') ||
+                 widget.productName.toLowerCase().contains('necklace') ||
+                 widget.productName.toLowerCase().contains('ring') ||
+                 widget.productName.toLowerCase().contains('bracelet') ||
+                 widget.productName.toLowerCase().contains('earring')) {
+        serviceType = 'accessory';
+        print('Accessory detected!');
+      } else if (widget.productName.toLowerCase().contains('makeup') || 
+                 widget.productName.toLowerCase().contains('مكياج') ||
+                 widget.productName.toLowerCase().contains('booking') ||
+                 widget.productName.toLowerCase().contains('حجز')) {
+        serviceType = 'makeup';
+        print('Makeup detected!');
+      } else {
+        print('No specific type detected, using default: makeup');
+      }
+
+      print('Determined service type: $serviceType');
+
       // Build command data with required fields
       final commandData = {
-        'service_id': validServiceId,
+        'service_id': widget.serviceId, // Use the service ID directly
+        'service_type': serviceType,
         'date_debut': formattedDate,
         'date_fin': formattedDate,
         'montant_total': _totalPrice.toString(),
@@ -153,6 +207,8 @@ class _CommandScreenState extends State<CommandScreen> {
 
       // Send command data to API
       final response = await _apiService.createCommand(commandData);
+      
+      print('Command response: $response');
       
       if (response == null) {
         throw Exception('Failed to create command. Server returned null response.');
@@ -182,6 +238,7 @@ class _CommandScreenState extends State<CommandScreen> {
         }
       });
     } catch (e) {
+      print('Command submission error: $e');
       setState(() {
         _isSubmitting = false;
         _error = e.toString();

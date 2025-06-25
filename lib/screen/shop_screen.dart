@@ -241,7 +241,7 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
                   item['name'] ?? 'Melhfa',
                   item['arabic_name'] ?? item['name'] ?? 'ملحفة',
                   item['price']?.toString() ?? '0.00',
-                  item['image'] ?? 'assets/images/placeholder.jpg',
+                  item['image_url'] ?? 'assets/images/placeholder.jpg',
                   item['id'] ?? 1,
                   true, // isNew
                 );

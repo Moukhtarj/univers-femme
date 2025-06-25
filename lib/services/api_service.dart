@@ -1116,102 +1116,61 @@ class ApiService {
   // Create a new command
   Future<dynamic> createCommand(Map<String, dynamic> data) async {
     try {
+      print('=== CREATE COMMAND DEBUG ===');
+      print('Input data: $data');
+      
       final user = await getCurrentUser();
       if (user == null || user['id'] == null) {
         throw Exception('User not logged in');
       }
+      print('Current user: $user');
 
-      // Validate service ID first
+      // Validate required fields
       final serviceId = data['service_id'];
+      final serviceType = data['service_type'];
+      
       if (serviceId == null) {
         throw Exception('Service ID is required');
       }
-
-      // Get the service based on service type
-      dynamic service;
-      List<dynamic> services = [];
       
-      // Try to find the service in all possible service types
-      try {
-        services = await getMelhfaTypes();
-        print('Got melhfa services: ${services.length}');
-        print('Melhfa services data: $services');
-      } catch (e) {
-        print('Error getting melhfa services: $e');
-      }
-      
-      if (services.isEmpty) {
-        try {
-          services = await getHennaOptions();
-          print('Got henna services: ${services.length}');
-          print('Henna services data: $services');
-        } catch (e) {
-          print('Error getting henna services: $e');
-        }
-      }
-      
-      if (services.isEmpty) {
-        try {
-          services = await getAccessories();
-          print('Got accessory services: ${services.length}');
-          print('Accessory services data: $services');
-        } catch (e) {
-          print('Error getting accessory services: $e');
-        }
-      }
-
-      // Find the service and determine its type
-      String? serviceType;
-      for (var s in services) {
-        print('Service: $s');
-        if (s['id'].toString() == serviceId.toString()) {
-          service = s;
-          // Determine the service type based on the service data
-          if (s['type'] != null) {
-            serviceType = 'melhfa';
-          } else if (s['category'] != null) {
-            serviceType = 'accessory';
-          } else {
-            serviceType = 'henna';
-          }
-          print('Service ID $serviceId is valid!');
-          break;
-        }
-      }
-
-      if (service == null) {
-        throw Exception('Service not found');
-      }
-
       if (serviceType == null) {
-        throw Exception('Could not determine service type');
+        throw Exception('Service type is required');
       }
+
+      print('Service ID: $serviceId (type: ${serviceId.runtimeType})');
+      print('Service type: $serviceType');
 
       // Format the date for the API
       final now = DateTime.now();
       final formattedDate = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
 
-      // Required fields according to the CommandSerializer
+      // Create command data - send exactly what the API expects
       final commandData = {
         'service_type': serviceType,
-        'date_commande': data['date_debut'] ?? formattedDate, // Use date_debut if provided, otherwise use current date
+        'date_commande': data['date_debut'] ?? formattedDate,
         'statut': data['statut'] ?? 'pending',
         'montant_total': data['montant_total'].toString(),
         'commentaire': data['commentaire'] ?? '',
-        // Set the appropriate service field based on service_type
-        if (serviceType == 'henna') 'henna_service': serviceId.toString(),
-        if (serviceType == 'accessory') 'accessory_service': serviceId.toString(),
-        if (serviceType == 'melhfa') 'melhfa_service': serviceId.toString(),
+        // Set the appropriate service field based on service_type - match Django serializer
+        if (serviceType == 'henna') 'makeup_service': int.parse(serviceId.toString()), // Django expects 'makeup_service'
+        if (serviceType == 'makeup') 'makeup_service': int.parse(serviceId.toString()), // Django expects 'makeup_service'
+        if (serviceType == 'accessory') 'accessory_service': int.parse(serviceId.toString()),
+        if (serviceType == 'melhfa') 'melhfa_service': int.parse(serviceId.toString()),
       };
 
       print('Sending command data: $commandData'); // Debug print
 
-      // Use the post method instead of dio.post
+      // Use the post method to create the command
       final response = await post('/api/commands/', commandData);
       print('Command creation response: $response'); // Debug print
+      print('=== END CREATE COMMAND DEBUG ===');
       return response;
     } catch (e) {
       print('Error creating command: $e');
+      print('Error type: ${e.runtimeType}');
+      if (e.toString().contains('DOCTYPE')) {
+        print('Received HTML response instead of JSON - possible server error');
+      }
       rethrow;
     }
   }
