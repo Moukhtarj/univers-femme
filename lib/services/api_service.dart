@@ -1118,6 +1118,8 @@ class ApiService {
     try {
       print('=== CREATE COMMAND DEBUG ===');
       print('Input data: $data');
+      print('Input montant_total: ${data['montant_total']}');
+      print('Input montant_total type: ${data['montant_total']?.runtimeType}');
       
       final user = await getCurrentUser();
       if (user == null || user['id'] == null) {
@@ -1149,7 +1151,7 @@ class ApiService {
         'service_type': serviceType,
         'date_commande': data['date_debut'] ?? formattedDate,
         'statut': data['statut'] ?? 'pending',
-        'montant_total': data['montant_total'].toString(),
+        'montant_total': double.tryParse(data['montant_total'].toString()) ?? 0.0, // Send as numeric value
         'commentaire': data['commentaire'] ?? '',
         // Set the appropriate service field based on service_type - match Django serializer
         if (serviceType == 'henna') 'makeup_service': int.parse(serviceId.toString()), // Django expects 'makeup_service'
@@ -1158,6 +1160,8 @@ class ApiService {
         if (serviceType == 'melhfa') 'melhfa_service': int.parse(serviceId.toString()),
       };
 
+      print('Original montant_total: ${data['montant_total']}');
+      print('Parsed montant_total: ${double.tryParse(data['montant_total'].toString()) ?? 0.0}');
       print('Sending command data: $commandData'); // Debug print
 
       // Use the post method to create the command
@@ -1230,6 +1234,8 @@ class ApiService {
           final processedCommands = commands.map((command) {
             try {
               if (command is Map) {
+                print('Processing command: $command'); // Debug print
+                
                 // Extract service details
                 Map<String, dynamic> serviceDetails = {};
                 if (command['henna_service'] != null) {
@@ -1244,6 +1250,18 @@ class ApiService {
                   serviceDetails = command['accessory_service'] is Map 
                     ? Map<String, dynamic>.from(command['accessory_service'])
                     : {'id': command['accessory_service']};
+                } else if (command['makeup_service'] != null) {
+                  serviceDetails = command['makeup_service'] is Map 
+                    ? Map<String, dynamic>.from(command['makeup_service'])
+                    : {'id': command['makeup_service']};
+                }
+
+                // Add additional service information if available
+                if (command['service_name'] != null) {
+                  serviceDetails['name'] = command['service_name'];
+                }
+                if (command['service_nom'] != null) {
+                  serviceDetails['nom'] = command['service_nom'];
                 }
 
                 // Create a properly structured command map
@@ -1252,7 +1270,7 @@ class ApiService {
                   'service_type': command['service_type'] ?? 'unknown',
                   'status': command['status'] ?? command['statut'] ?? 'pending',
                   'created_at': command['created_at'] ?? DateTime.now().toIso8601String(),
-                  'montant_total': command['montant_total'] ?? 0,
+                  'montant_total': command['montant_total'], // Don't default to 0, preserve original value
                   'service_details': serviceDetails,
                 };
                 print('Processed command: $processedCommand'); // Debug print

@@ -504,6 +504,15 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   }
 
   Widget _buildCommandCard(dynamic command, String formattedDate, Color statusColor) {
+    // Debug output to see command data
+    print('=== COMMAND CARD DEBUG ===');
+    print('Command data: $command');
+    print('Service type: ${command['service_type']}');
+    print('Montant total: ${command['montant_total']}');
+    print('Montant total type: ${command['montant_total']?.runtimeType}');
+    print('Service details: ${command['service_details']}');
+    print('========================');
+    
     // Extract service details
     String serviceName = '';
     String serviceType = '';
@@ -513,38 +522,78 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       // First try to get service type from the command
       serviceType = command['service_type'] ?? '';
       
-      // Then try to get service name based on service type
-      if (command['henna_service'] != null) {
-        serviceName = command['henna_service'] is Map ? 
-          (command['henna_service']['name'] ?? 'Henna Service') : 
-          'Henna Service';
-        serviceType = 'henna';
-      } else if (command['melhfa_service'] != null) {
-        serviceName = command['melhfa_service'] is Map ? 
-          (command['melhfa_service']['type'] ?? 'Melhfa Service') : 
-          'Melhfa Service';
-        serviceType = 'melhfa';
-      } else if (command['accessory_service'] != null) {
-        serviceName = command['accessory_service'] is Map ? 
-          (command['accessory_service']['name'] ?? 'Accessory Service') : 
-          'Accessory Service';
-        serviceType = 'accessory';
-      } else if (command['hammam_service'] != null) {
-        serviceName = command['hammam_service'] is Map ? 
-          (command['hammam_service']['name'] ?? 'Hammam Service') : 
-          'Hammam Service';
-        serviceType = 'hammam';
-      } else if (command['gym_service'] != null) {
-        serviceName = command['gym_service'] is Map ? 
-          (command['gym_service']['name'] ?? 'Gym Service') : 
-          'Gym Service';
-        serviceType = 'gym';
-      } else if (command['service'] is Map) {
-        serviceName = command['service']['name'] ?? 
-                     command['service']['nom'] ?? 
-                     command['service']['type'] ?? 
+      // Try to get service name from service_details first
+      if (command['service_details'] != null && command['service_details'] is Map) {
+        final serviceDetails = command['service_details'] as Map;
+        serviceName = serviceDetails['name'] ?? 
+                     serviceDetails['nom'] ?? 
+                     serviceDetails['type'] ?? 
                      'Service';
-        serviceType = command['service']['type'] ?? serviceType;
+      }
+      
+      // Fallback to old field names if service_details is not available
+      if (serviceName.isEmpty) {
+        if (command['henna_service'] != null) {
+          serviceName = command['henna_service'] is Map ? 
+            (command['henna_service']['name'] ?? 'Henna Service') : 
+            'Henna Service';
+          serviceType = 'henna';
+        } else if (command['melhfa_service'] != null) {
+          serviceName = command['melhfa_service'] is Map ? 
+            (command['melhfa_service']['name'] ?? command['melhfa_service']['type'] ?? 'Melhfa Service') : 
+            'Melhfa Service';
+          serviceType = 'melhfa';
+        } else if (command['accessory_service'] != null) {
+          serviceName = command['accessory_service'] is Map ? 
+            (command['accessory_service']['name'] ?? 'Accessory Service') : 
+            'Accessory Service';
+          serviceType = 'accessory';
+        } else if (command['makeup_service'] != null) {
+          serviceName = command['makeup_service'] is Map ? 
+            (command['makeup_service']['name'] ?? 'Makeup Service') : 
+            'Makeup Service';
+          serviceType = 'makeup';
+        } else if (command['hammam_service'] != null) {
+          serviceName = command['hammam_service'] is Map ? 
+            (command['hammam_service']['name'] ?? 'Hammam Service') : 
+            'Hammam Service';
+          serviceType = 'hammam';
+        } else if (command['gym_service'] != null) {
+          serviceName = command['gym_service'] is Map ? 
+            (command['gym_service']['name'] ?? 'Gym Service') : 
+            'Gym Service';
+          serviceType = 'gym';
+        } else if (command['service'] is Map) {
+          serviceName = command['service']['name'] ?? 
+                       command['service']['nom'] ?? 
+                       command['service']['type'] ?? 
+                       'Service';
+          serviceType = command['service']['type'] ?? serviceType;
+        }
+      }
+      
+      // If still no service name, use a default based on service type
+      if (serviceName.isEmpty) {
+        switch (serviceType) {
+          case 'melhfa':
+            serviceName = 'Melhfa Service';
+            break;
+          case 'accessory':
+            serviceName = 'Accessory Service';
+            break;
+          case 'makeup':
+          case 'henna':
+            serviceName = 'Makeup Service';
+            break;
+          case 'hammam':
+            serviceName = 'Hammam Service';
+            break;
+          case 'gym':
+            serviceName = 'Gym Service';
+            break;
+          default:
+            serviceName = 'Service';
+        }
       }
     }
 
@@ -631,7 +680,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
             ),
             
             // Price if available
-            if (command['montant_total'] != null)
+            if (command['montant_total'] != null && command['montant_total'] != 0)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: _buildInfoRow(

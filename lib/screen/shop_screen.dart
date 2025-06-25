@@ -52,7 +52,7 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     
     try {
       // Load all data in parallel
-      final melhfaFuture = _apiService.getMelhfaTypes();
+      final melhfaFuture = _loadMelhfaModels();
       final accessoriesFuture = _apiService.getAccessories();
       final makeupFuture = _apiService.getMakeupServices();
       
@@ -83,6 +83,35 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
           ),
         );
       }
+    }
+  }
+
+  // Load melhfa models for all types
+  Future<List<dynamic>> _loadMelhfaModels() async {
+    try {
+      // First get the melhfa types
+      final melhfaTypes = await _apiService.getMelhfaTypes();
+      print('Melhfa types: $melhfaTypes'); // Debug print
+      List<dynamic> allMelhfaModels = [];
+      
+      // For each type, get the models
+      for (var type in melhfaTypes) {
+        if (type['id'] != null) {
+          try {
+            final models = await _apiService.getMelhfaModels(type['id']);
+            print('Models for type ${type['id']}: $models'); // Debug print
+            allMelhfaModels.addAll(models);
+          } catch (e) {
+            print('Error loading models for type ${type['id']}: $e');
+          }
+        }
+      }
+      
+      print('Total melhfa models: ${allMelhfaModels.length}'); // Debug print
+      return allMelhfaModels;
+    } catch (e) {
+      print('Error loading melhfa models: $e');
+      return [];
     }
   }
 
@@ -333,6 +362,7 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
                 selectedLanguage: widget.selectedLanguage,
                 translations: widget.translations,
                 productImage: imagePath,
+                productPrice: double.tryParse(price) ?? 0.0,
               ),
             ),
           );

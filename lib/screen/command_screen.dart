@@ -49,6 +49,10 @@ class _CommandScreenState extends State<CommandScreen> {
   void _initializePrice() {
     // Use the productPrice if provided, otherwise default to 0
     _price = widget.productPrice ?? 0.0;
+    print('=== PRICE INITIALIZATION DEBUG ===');
+    print('Widget productPrice: ${widget.productPrice}');
+    print('Initialized _price: $_price');
+    print('Quantity: $_quantity');
     _calculateTotalPrice();
   }
 
@@ -56,6 +60,7 @@ class _CommandScreenState extends State<CommandScreen> {
     setState(() {
       _totalPrice = _price * _quantity;
     });
+    print('Calculated total price: $_totalPrice (price: $_price * quantity: $_quantity)');
   }
 
   void _incrementQuantity() {
